@@ -2,7 +2,7 @@
 
 (library
  (name fade_analysis)
- (libraries core fade_types digestif.ocaml yojson)
+ (libraries core fade_types digestif.ocaml yojson ppx_yojson_conv_lib)
  (inline_tests)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane ppx_yojson_conv)))

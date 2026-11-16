@@ -20,9 +20,8 @@ let command =
     ~summary:"fade: is buying NO on Kalshi +EV after fees?"
     [ "fetch", Cmd_fetch.command
     ; "import-edgecheck", Cmd_import.command
-    ; "freeze", Cmd_stubs.todo ~summary:"Choose rules in-sample and freeze them" ~phase:3
-    ; ( "report"
-      , Cmd_stubs.todo ~summary:"Print tables, write web/data/report.json" ~phase:3 )
+    ; "freeze", Cmd_freeze.command
+    ; "report", Cmd_report.command
     ; "serve", Cmd_stubs.todo ~summary:"Serve the dashboard on localhost" ~phase:4
     ; "synth", Cmd_synth.command
     ; "cutoff", cutoff_command

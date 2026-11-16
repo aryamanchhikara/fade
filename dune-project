@@ -52,6 +52,7 @@
   async_ssl
   sqlite3
   digestif
+  ezgzip
   (js_of_ocaml
    (and
     (>= 5.1)

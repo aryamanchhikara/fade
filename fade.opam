@@ -23,6 +23,7 @@ depends: [
   "async_ssl"
   "sqlite3"
   "digestif"
+  "ezgzip"
   "js_of_ocaml" {>= "5.1" & < "5.7"}
   "js_of_ocaml-ppx"
   "odoc" {with-doc}

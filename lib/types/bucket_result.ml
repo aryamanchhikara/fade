@@ -17,7 +17,8 @@ type t =
   ; breakeven : float (** win rate needed to break even after fees *)
   ; mean_return : float (** profit per dollar staked, after fees *)
   ; return_ci : Ci.t option
-    (** 95% bootstrap CI, resampling whole events. [None] when [n < min_n]. *)
+    (** 95% CI: the wider of an event-clustered bootstrap and an events-as-n Wilson
+          interval mapped to returns. [None] when [n < min_n]. *)
   ; enough : bool (** [n >= min_n] *)
   }
 [@@deriving sexp, yojson, compare, equal]

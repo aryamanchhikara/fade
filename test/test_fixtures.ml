@@ -39,9 +39,9 @@ let%expect_test "fixture shape" =
            : float)];
   [%expect
     {|
-    ((markets 2030) (events 700) (snapshots 5551) (trades 4069)
+    ((markets 2590) (events 900) (snapshots 7087) (trades 5223)
      (kinds
-      (("bracket event" 1345) ("multi-market event" 419) ("single market" 266)))
+      (("bracket event" 1728) ("multi-market event" 517) ("single market" 345)))
      (yes_rate 0.315))
     |}]
 ;;
@@ -74,8 +74,8 @@ let%expect_test "types round-trip through JSON and sexp" =
   [%expect
     {|
     true
-    ((ticker SYNCRY1-0009-M0) (horizon H24) (ts 1783692000) (yes_bid (25))
-     (yes_ask (29)))
-    ((no_ask (75)) (no_bid (71)))
+    ((ticker SYNCRY1-0009-M0) (horizon H24) (ts 1747803600) (yes_bid (65))
+     (yes_ask (67)))
+    ((no_ask (35)) (no_bid (33)))
     |}]
 ;;

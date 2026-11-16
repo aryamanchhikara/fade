@@ -9,6 +9,7 @@
   cohttp-async
   uri
   yojson
+  ezgzip
   fade_types
   fade_analysis)
  (inline_tests

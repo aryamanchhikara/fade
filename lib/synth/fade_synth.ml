@@ -21,10 +21,10 @@ module Params = struct
 
   let default =
     { seed = 20260516
-    ; n_events = 700
+    ; n_events = 900
     ; first_settle = Unix_time.of_date_string_exn "2025-05-16"
     ; last_settle = Unix_time.of_date_string_exn "2026-09-30"
-    ; shrink = 0.86
+    ; shrink = 0.75
     }
   ;;
 end

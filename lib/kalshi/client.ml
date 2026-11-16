@@ -71,10 +71,24 @@ let get_once t uri =
     Monitor.try_with (fun () ->
       let%bind resp, body =
         Cohttp_async.Client.get
-          ~headers:(Cohttp.Header.of_list [ "accept", "application/json" ])
+          ~headers:
+            (Cohttp.Header.of_list
+               [ "accept", "application/json"; "accept-encoding", "gzip" ])
           uri
       in
       let%map body = Cohttp_async.Body.to_string body in
+      (* A page of 1000 markets is about 2.5MB of JSON but ~110KB gzipped: asking for
+         gzip makes listing several times faster. *)
+      let body =
+        match Cohttp.Header.get (Cohttp.Response.headers resp) "content-encoding" with
+        | Some "gzip" ->
+          (match Ezgzip.decompress body with
+           | Ok s -> s
+           | Error (`Gzip e) ->
+             raise_s
+               [%message "gzip decode failed" (Format.asprintf "%a" Ezgzip.pp_error e)])
+        | _ -> body
+      in
       Cohttp.Response.status resp |> Cohttp.Code.code_of_status, body)
   with
   | Ok (status, body) -> return (`Status (status, body))

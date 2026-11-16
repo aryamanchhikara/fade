@@ -1,0 +1,6 @@
+[
+  {"waitFor": "document.querySelector('#verdict') !== null"},
+  {"eval": "(() => { [...document.querySelectorAll('.seg')].find(b => b.textContent === 'In-sample').click(); return 'in-sample'; })()"},
+  {"wait": 400},
+  {"shot": "docs/assets/in-sample.png"}
+]

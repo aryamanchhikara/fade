@@ -12,13 +12,16 @@ let default_config
       (d : Dataset.t)
   : Config.t
   =
+  let settles = List.map d.markets ~f:(fun m -> m.settle_time) in
   let first_settle =
-    List.map d.markets ~f:(fun m -> m.settle_time)
-    |> List.min_elt ~compare:Int.compare
-    |> Option.value ~default:0
+    List.min_elt settles ~compare:Int.compare |> Option.value ~default:0
+  in
+  let last_settle =
+    List.max_elt settles ~compare:Int.compare |> Option.value ~default:0
   in
   let base : Config.t =
     { data_since = Unix_time.to_date_string first_settle
+    ; data_until = Unix_time.to_date_string last_settle
     ; cutoff =
         Option.value_or_thunk cutoff ~default:(fun () -> Split.default_cutoff d.markets)
     ; min_n
@@ -46,6 +49,17 @@ let default_config
   }
 ;;
 
+(* Only markets that settled inside the frozen window [data_since, data_until] are
+   analysed, so refetching later (which adds newer markets) cannot change results. *)
+let restrict ~(config : Config.t) (d : Dataset.t) : Dataset.t =
+  let lo = Unix_time.of_date_string_exn config.data_since in
+  let hi = Unix_time.of_date_string_exn config.data_until + 86_400 in
+  { d with
+    markets =
+      List.filter d.markets ~f:(fun m -> m.settle_time >= lo && m.settle_time < hi)
+  }
+;;
+
 let observations ~(config : Config.t) (d : Dataset.t) ~drops =
   let fees = Fees.Index.create d.fees in
   [ View.Quotes, Observation.of_quotes d ~config ~fees ~drops
@@ -57,6 +71,7 @@ let observations ~(config : Config.t) (d : Dataset.t) ~drops =
 (* Freezing only ever builds in-sample tables: out-of-time observations are filtered out
    before any statistic is computed. *)
 let freeze ~frozen_at ~(config : Config.t) (d : Dataset.t) =
+  let d = restrict ~config d in
   let split = Split.create ~config d.markets in
   let drops = Observation.Drops.create () in
   let in_sample_only =
@@ -227,6 +242,7 @@ let build ?sampling ~generated_at ~synthetic ~(frozen : Frozen.t) (d : Dataset.t
         |> List.length )
   in
   let config = frozen.config in
+  let d = restrict ~config d in
   let split = Split.create ~config d.markets in
   let drops = Observation.Drops.create () in
   let observations = observations ~config d ~drops in

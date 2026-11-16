@@ -171,10 +171,15 @@ let historical_markets store client ~since ~cutoff ~min_volume =
   else (
     let progress = Progress.create "historical mkts" in
     (* Listing is newest-created first. Markets settling in the window can have been
-       created before it, so keep going until creation dates are a year before [since].
-       Markets created more than a year before they settle are rare and are missed. *)
+       created before it, so keep going past [since] (see [quiet_limit] below), and never
+       further than a year before it. Markets created that long before they settle are
+       rare and are missed. *)
     let stop_before = since - (365 * 86_400) in
-    let rec loop cursor kept_total =
+    (* Once creation dates are before [since], what remains is mostly markets that
+       settled before the window. Stop after [quiet_limit] consecutive pages with
+       nothing in scope; [stop_before] is the hard backstop. *)
+    let quiet_limit = 100 in
+    let rec loop cursor kept_total quiet =
       let%bind page = E.historical_markets client ~cursor >>| ok_exn in
       let kept =
         save_page store ~source:"historical" ~since ~until:cutoff ~min_volume page.markets
@@ -192,8 +197,14 @@ let historical_markets store client ~since ~cutoff ~min_volume =
              "pages; %d in scope; created back to %s"
              kept_total
              (Option.value_map oldest ~default:"?" ~f:Unix_time.to_date_string));
+      let quiet =
+        match oldest with
+        | Some o when o < since && kept = 0 -> quiet + 1
+        | _ -> 0
+      in
       let finished =
         String.is_empty page.cursor
+        || quiet >= quiet_limit
         || Option.value_map oldest ~default:true ~f:(fun o -> o < stop_before)
       in
       if finished
@@ -201,9 +212,9 @@ let historical_markets store client ~since ~cutoff ~min_volume =
         Store.set_meta store "historical_markets_done" "1";
         Progress.finish progress;
         return ())
-      else loop page.cursor kept_total
+      else loop page.cursor kept_total quiet
     in
-    loop (Option.value (Store.get_meta store "historical_markets_cursor") ~default:"") 0)
+    loop (Option.value (Store.get_meta store "historical_markets_cursor") ~default:"") 0 0)
 ;;
 
 let live_markets store client ~since ~cutoff ~min_volume =

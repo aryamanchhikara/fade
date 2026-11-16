@@ -1,0 +1,6 @@
+[
+  {"waitFor": "document.querySelector('#verdict') !== null"},
+  {"eval": "(() => { [...document.querySelectorAll('.seg')].find(b => b.textContent === 'Makers (trades)').click(); return 'makers'; })()"},
+  {"wait": 400},
+  {"shot": "docs/assets/makers.png"}
+]

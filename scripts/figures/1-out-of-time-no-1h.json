@@ -1,0 +1,5 @@
+[
+  {"waitFor": "document.querySelector('#verdict') !== null"},
+  {"wait": 300},
+  {"shot": "docs/assets/dashboard.png"}
+]

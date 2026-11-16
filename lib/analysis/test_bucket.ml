@@ -22,6 +22,7 @@ let market ?(result = Side.No) ticker event : Market.t =
 
 let config : Config.t =
   { data_since = "2025-05-16"
+  ; data_until = "2026-11-15"
   ; cutoff = "2026-03-01"
   ; min_n = 3
   ; bucket_width = 5.

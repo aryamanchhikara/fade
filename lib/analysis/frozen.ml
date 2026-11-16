@@ -94,6 +94,7 @@ let select ~(in_sample_tables : Table.t list) =
 let%expect_test "hash is stable and detects edits" =
   let config : Config.t =
     { data_since = "2025-05-16"
+    ; data_until = "2026-11-15"
     ; cutoff = "2026-03-01"
     ; min_n = 30
     ; bucket_width = 5.
@@ -118,7 +119,7 @@ let%expect_test "hash is stable and detects edits" =
   print_s [%sexp (Or_error.is_ok (of_string (to_string edited)) : bool)];
   [%expect
     {|
-    0ecb5881a5446dff78ef5718a7f6f2cff01b939f49b3ff2adab9fd55621bf509
+    d2e59a8f67a343e268ab8c65355568b5bb05a40deb0d74d91197acd2ddc1e9c6
     true
     true
     false

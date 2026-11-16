@@ -1,0 +1,6 @@
+[
+  {"waitFor": "document.querySelector('#verdict') !== null"},
+  {"eval": "(() => { document.querySelector('#compare').click(); return 'compare'; })()"},
+  {"wait": 400},
+  {"shot": "docs/assets/horizons.png"}
+]

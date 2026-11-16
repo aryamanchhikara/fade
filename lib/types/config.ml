@@ -5,6 +5,7 @@ open! Ppx_yojson_conv_lib.Yojson_conv.Primitives
    so changing any of these after freezing is detected. *)
 type t =
   { data_since : string (** first settlement date included, YYYY-MM-DD *)
+  ; data_until : string (** last settlement date included, YYYY-MM-DD *)
   ; cutoff : string (** in-sample / out-of-time boundary, YYYY-MM-DD *)
   ; min_n : int (** buckets with fewer observations are greyed out and never selected *)
   ; bucket_width : float (** cents *)

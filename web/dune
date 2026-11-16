@@ -1,0 +1,9 @@
+; The web UI is compiled to JavaScript by js_of_ocaml.
+; [modes js] makes dune build web/main.bc.js instead of a native binary.
+
+(executable
+ (name main)
+ (modes js)
+ (libraries core bonsai bonsai.web)
+ (preprocess
+  (pps ppx_jane bonsai.ppx_bonsai)))

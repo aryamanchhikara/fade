@@ -114,7 +114,23 @@ let event st ~(params : Params.t) ~idx =
   in
   let span = params.last_settle - params.first_settle in
   let settle = params.first_settle + Random.State.int st span in
-  let close_time = settle - (60 + Random.State.int st 3000) in
+  (* Sports markets close when the game ends (an arbitrary second, before the expected
+     expiration); everything else closes on a scheduled hour. *)
+  let close_kind : Close_kind.t =
+    if String.equal category "Sports" then Event_driven else Scheduled
+  in
+  let close_time =
+    match close_kind with
+    | Scheduled ->
+      let c = settle - 600 in
+      c - (c mod 3600)
+    | Event_driven -> settle - (60 + Random.State.int st 3000)
+  in
+  let expected_expiration =
+    match close_kind with
+    | Scheduled -> close_time
+    | Event_driven -> close_time + 3600 + Random.State.int st 5400
+  in
   let open_time = close_time - (86_400 * (2 + Random.State.int st 10)) in
   let p24, p6, p1 = draw_paths st ~kind ~n in
   let wins =
@@ -141,7 +157,9 @@ let event st ~(params : Params.t) ~idx =
           Float.round_decimal
             ~decimal_digits:2
             (500. +. Float.exp (6.5 +. (1.3 *. gaussian st)))
-      ; can_close_early = String.equal category "Sports"
+      ; can_close_early = true
+      ; expected_expiration = Some expected_expiration
+      ; close_kind
       ; event_kind = kind
       }
     in
@@ -154,9 +172,13 @@ let event st ~(params : Params.t) ~idx =
           then None
           else (
             let yes_bid, yes_ask = quote st ~shrink:params.shrink ~p in
-            let ts = close_time - Horizon.seconds horizon in
-            let ts = ts - (ts mod 3600) in
-            Some { Snapshot.ticker; horizon; ts; yes_bid; yes_ask }))
+            (* Same rule as real data: decision time = schedule - h, quote from the
+               candle ending in the hour before it, market still open. *)
+            let decision = expected_expiration - Horizon.seconds horizon in
+            let ts = decision - (decision mod 3600) in
+            if decision > close_time
+            then None
+            else Some { Snapshot.ticker; horizon; ts; yes_bid; yes_ask }))
     in
     let trades =
       if Float.( < ) (Random.State.float st 1.) 0.55

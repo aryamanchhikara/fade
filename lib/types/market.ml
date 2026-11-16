@@ -16,6 +16,9 @@ type t =
   ; result : Side.t
   ; volume : float (** contracts traded over the market's life *)
   ; can_close_early : bool
+  ; expected_expiration : Unix_time.t option
+    (** Kalshi's [expected_expiration_time], fixed in advance *)
+  ; close_kind : Close_kind.t
   ; event_kind : Event_kind.t
   }
 [@@deriving sexp, yojson, compare, equal]

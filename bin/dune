@@ -12,6 +12,7 @@
   fade_synth
   fade_store
   fade_analysis
+  fade_fetch
   kalshi)
  (preprocess
   (pps ppx_jane)))

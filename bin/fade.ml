@@ -18,9 +18,8 @@ let cutoff_command =
 let command =
   Command.group
     ~summary:"fade: is buying NO on Kalshi +EV after fees?"
-    [ "fetch", Cmd_stubs.todo ~summary:"Fetch Kalshi data into data/fade.db" ~phase:2
-    ; ( "import-edgecheck"
-      , Cmd_stubs.todo ~summary:"Import edgecheck's DuckDB cache (read-only)" ~phase:2 )
+    [ "fetch", Cmd_fetch.command
+    ; "import-edgecheck", Cmd_import.command
     ; "freeze", Cmd_stubs.todo ~summary:"Choose rules in-sample and freeze them" ~phase:3
     ; ( "report"
       , Cmd_stubs.todo ~summary:"Print tables, write web/data/report.json" ~phase:3 )

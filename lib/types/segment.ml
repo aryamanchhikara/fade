@@ -8,6 +8,7 @@ type t =
   | Category of string
   | Volume_tercile of int (** 1 = lowest-volume third, 3 = highest *)
   | Event_kind of Event_kind.t
+  | Close_kind of Close_kind.t
 [@@deriving sexp, yojson, compare, equal, hash]
 
 let to_string = function
@@ -18,6 +19,7 @@ let to_string = function
   | Volume_tercile 3 -> "High volume (top third)"
   | Volume_tercile n -> sprintf "Volume tercile %d" n
   | Event_kind k -> String.capitalize (Event_kind.to_string k) ^ "s"
+  | Close_kind k -> "Markets with " ^ Close_kind.to_string k
 ;;
 
 (* A stable string id, used as a <select> value in the UI. *)
@@ -26,6 +28,7 @@ let to_id = function
   | Category c -> "cat:" ^ c
   | Volume_tercile n -> sprintf "vol:%d" n
   | Event_kind k -> "kind:" ^ String.lowercase (Sexp.to_string (Event_kind.sexp_of_t k))
+  | Close_kind k -> "close:" ^ String.lowercase (Sexp.to_string (Close_kind.sexp_of_t k))
 ;;
 
 let group = function
@@ -33,4 +36,5 @@ let group = function
   | Category _ -> "Category"
   | Volume_tercile _ -> "Volume"
   | Event_kind _ -> "Event type"
+  | Close_kind _ -> "Close timing"
 ;;

@@ -14,9 +14,7 @@ type t =
   ; seed : int
   ; volume_tercile_bounds : float list
     (** two volume thresholds, computed on in-sample markets only *)
-  ; drop_early_closers : bool
-    (** drop markets that closed before their scheduled time, whose "1h before
-          close" was not knowable in advance *)
+  ; anchor : Anchor.t (** what horizons are measured back from *)
   ; selection : string (** human-readable statement of the selection criterion *)
   }
 [@@deriving sexp, yojson, compare, equal]

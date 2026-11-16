@@ -47,6 +47,15 @@ let statements =
         fee_type TEXT,
         fee_multiplier REAL,
         ts INTEGER NOT NULL)|}
+  ; (* Raw hourly candles (YES bid/ask at the end of each hour, cents) for the window
+       before close. Snapshots are derived from these at load time, so the choice of
+       horizon anchor is an analysis setting, not baked into the cache. *)
+    {|CREATE TABLE IF NOT EXISTS candles (
+        ticker TEXT NOT NULL,
+        end_ts INTEGER NOT NULL,
+        yes_bid REAL,
+        yes_ask REAL,
+        PRIMARY KEY (ticker, end_ts)) WITHOUT ROWID|}
   ; {|CREATE TABLE IF NOT EXISTS snapshots (
         ticker TEXT NOT NULL,
         horizon TEXT NOT NULL,

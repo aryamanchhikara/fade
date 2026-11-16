@@ -14,6 +14,9 @@ module Window = struct
   type t =
     { first_settle : string
     ; last_settle : string
+    ; population : int (** markets in scope (settled in window, volume threshold) *)
+    ; quote_sample : int (** uniform random sample with hourly candles *)
+    ; trade_sample : int (** uniform random sample with trades *)
     ; n_markets : int
     ; n_events : int
     ; n_trades : int

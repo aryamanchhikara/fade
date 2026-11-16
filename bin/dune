@@ -9,6 +9,9 @@
   core_unix.command_unix
   core_unix.sys_unix
   yojson
+  cohttp
+  cohttp-async
+  uri
   async
   fade_types
   fade_synth

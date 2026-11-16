@@ -65,10 +65,10 @@ let%expect_test "report: verdict, window, rule results" =
        | Some b -> sprintf "%+.1f%% (n=%d)" (100. *. b.mean_return) b.n));
   [%expect
     {|
-    ((first_settle 2025-05-17) (last_settle 2026-09-28) (n_markets 2590)
-     (n_events 900) (n_trades 5223) (n_in_sample_events 568)
-     (n_out_of_time_events 330) (n_embargoed_events 2)
-     (dropped (("quote: no ask on that side" 95))))
+    ((first_settle 2025-05-17) (last_settle 2026-09-28) (population 2590)
+     (quote_sample 2589) (trade_sample 1165) (n_markets 2590) (n_events 900)
+     (n_trades 5223) (n_in_sample_events 568) (n_out_of_time_events 330)
+     (n_embargoed_events 2) (dropped (("quote: no ask on that side" 95))))
     ((tone Neutral) (headline "No proven edge")
      (detail
       "0 of 5 scored rules has an out-of-time CI above zero. Best: Buying NO at 85-90\194\162, 24h before close returned +6.1% after fees out-of-time (95% CI -3.6% to +11.9%), n = 77 markets in 67 events. 5 rules were frozen in-sample from 215 cells examined; cutoff 2026-03-28."))

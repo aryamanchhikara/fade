@@ -26,14 +26,15 @@ let is_demo = function
   | Db _ -> false
 ;;
 
-let load t ~(anchor : Anchor.t) : Dataset.t =
+(* The dataset, plus (population, quote sample, trade sample) for real data. *)
+let load_with_sampling t ~(anchor : Anchor.t) : Dataset.t * (int * int * int) option =
   match t with
-  | Demo path -> Fade_synth.of_json_string (In_channel.read_all path)
+  | Demo path -> Fade_synth.of_json_string (In_channel.read_all path), None
   | Db path ->
     if not (Sys_unix.file_exists_exn path)
     then raise_s [%message "no cache found; run `fade fetch` first" (path : string)];
     let store = Fade_store.open_ path in
-    let d, stats = Fade_store.Load.dataset store ~anchor in
+    let (d : Dataset.t), stats = Fade_store.Load.dataset store ~anchor in
     Fade_store.close store;
     eprintf
       "loaded %d markets (%d without event metadata), %d snapshots, %d trades; %d \
@@ -45,7 +46,16 @@ let load t ~(anchor : Anchor.t) : Dataset.t =
       (List.length d.trades)
       stats.event_driven_series
       stats.scheduled_series;
-    d
+    eprintf
+      "population %d markets in scope; quote sample %d (%.1f%%); trade sample %d\n%!"
+      stats.population
+      stats.quote_sample
+      (100.
+       *. Float.of_int stats.quote_sample
+       /. Float.of_int (Int.max 1 stats.population))
+      stats.trade_sample;
+    d, Some (stats.population, stats.quote_sample, stats.trade_sample)
 ;;
 
+let load t ~anchor = fst (load_with_sampling t ~anchor)
 let now_string () = Unix_time.to_rfc3339 (Float.to_int (Core_unix.time ()))

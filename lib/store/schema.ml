@@ -25,6 +25,7 @@ let statements =
         source TEXT NOT NULL,
         sample_key INTEGER NOT NULL)|}
   ; {|CREATE INDEX IF NOT EXISTS markets_event ON markets(event_ticker)|}
+  ; {|CREATE INDEX IF NOT EXISTS markets_key ON markets(sample_key)|}
   ; {|CREATE TABLE IF NOT EXISTS events (
         event_ticker TEXT PRIMARY KEY,
         series_ticker TEXT NOT NULL,

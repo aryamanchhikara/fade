@@ -209,7 +209,23 @@ let segment_order (s : Segment.t) =
   | Close_kind k -> 4, Close_kind.to_string k
 ;;
 
-let build ~generated_at ~synthetic ~(frozen : Frozen.t) (d : Dataset.t) : Report.t =
+let build ?sampling ~generated_at ~synthetic ~(frozen : Frozen.t) (d : Dataset.t)
+  : Report.t
+  =
+  (* [sampling]: (population, quote sample, trade sample). Synthetic data is not sampled. *)
+  let population, quote_sample, trade_sample =
+    match sampling with
+    | Some s -> s
+    | None ->
+      let n = List.length d.markets in
+      ( n
+      , List.map d.snapshots ~f:(fun s -> s.ticker)
+        |> List.dedup_and_sort ~compare:String.compare
+        |> List.length
+      , List.map d.trades ~f:(fun t -> t.ticker)
+        |> List.dedup_and_sort ~compare:String.compare
+        |> List.length )
+  in
   let config = frozen.config in
   let split = Split.create ~config d.markets in
   let drops = Observation.Drops.create () in
@@ -255,6 +271,9 @@ let build ~generated_at ~synthetic ~(frozen : Frozen.t) (d : Dataset.t) : Report
   ; window =
       { first_settle = date List.min_elt
       ; last_settle = date List.max_elt
+      ; population
+      ; quote_sample
+      ; trade_sample
       ; n_markets = List.length d.markets
       ; n_events =
           List.map d.markets ~f:(fun m -> m.event_ticker)

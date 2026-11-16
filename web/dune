@@ -4,6 +4,15 @@
 (executable
  (name main)
  (modes js)
- (libraries core yojson bonsai bonsai.web fade_types)
+ (libraries
+  core
+  yojson
+  async_js
+  js_of_ocaml
+  bonsai
+  bonsai.web
+  virtual_dom
+  virtual_dom.svg
+  fade_types)
  (preprocess
-  (pps ppx_jane bonsai.ppx_bonsai)))
+  (pps ppx_jane bonsai.ppx_bonsai js_of_ocaml-ppx)))

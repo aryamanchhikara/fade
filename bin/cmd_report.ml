@@ -49,9 +49,15 @@ let print_report (r : Report.t) ~frozen_path =
     "fade report: %s\n"
     (if r.synthetic then "SYNTHETIC DATA (not Kalshi)" else "Kalshi data");
   printf
-    "window: markets settled %s to %s; %d markets in %d events; %d trades\n"
+    "window: markets settled %s to %s; population %d markets in scope\n"
     w.first_settle
     w.last_settle
+    w.population;
+  printf
+    "sample: %d markets with quotes (uniform random), %d with trades; %d markets in %d \
+     events loaded; %d trades\n"
+    w.quote_sample
+    w.trade_sample
     w.n_markets
     w.n_events
     w.n_trades;
@@ -152,8 +158,9 @@ let build_report source ~frozen_path =
           "no frozen rules; run `fade freeze` first (it only looks at in-sample data)"
             (frozen_path : string)]
   in
-  let d = Data_source.load source ~anchor:frozen.config.anchor in
+  let d, sampling = Data_source.load_with_sampling source ~anchor:frozen.config.anchor in
   Report_builder.build
+    ?sampling
     ~generated_at:(Data_source.now_string ())
     ~synthetic:(Data_source.is_demo source)
     ~frozen

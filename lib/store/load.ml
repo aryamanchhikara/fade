@@ -31,7 +31,10 @@ let series_prefix event_ticker =
 
 module Stats = struct
   type t =
-    { markets_loaded : int
+    { population : int (** markets in scope that were listed *)
+    ; quote_sample : int (** markets in the complete candle-sample prefix *)
+    ; trade_sample : int (** markets in the complete trade-sample prefix *)
+    ; markets_loaded : int
     ; markets_without_event_metadata : int
     ; event_driven_series : int
     ; scheduled_series : int
@@ -116,8 +119,48 @@ let fees store ~series_used : Fee_schedule.t =
 
 let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
   let close_kinds = close_kinds store in
-  let sampled =
-    "(SELECT ticker FROM candles_done UNION SELECT ticker FROM trades_done)"
+  (* Samples are drawn in [sample_key] order, so the usable sample is the complete
+     prefix: every market whose key is below the first key not yet fetched. Wherever a
+     fetch was stopped, this is still a uniform random sample of the listed markets. *)
+  let first_missing table =
+    match
+      Db.rows
+        store
+        (sprintf
+           "SELECT MIN(m.sample_key) FROM markets m LEFT JOIN %s d USING (ticker) WHERE \
+            d.ticker IS NULL"
+           table)
+        []
+    with
+    | [ [| Sqlite3.Data.INT k |] ] -> Int64.to_int_exn k
+    | _ -> Int.max_value
+  in
+  let candle_limit = first_missing "candles_done" in
+  let trade_limit = first_missing "trades_done" in
+  (* Bare SELECTs; wrapped in parentheses where used with IN. *)
+  let candle_select =
+    sprintf
+      "SELECT d.ticker FROM candles_done d JOIN markets m USING (ticker) WHERE \
+       m.sample_key < %d"
+      candle_limit
+  in
+  let trade_select =
+    sprintf
+      "SELECT d.ticker FROM trades_done d JOIN markets m USING (ticker) WHERE \
+       m.sample_key < %d"
+      trade_limit
+  in
+  let trade_set = "(" ^ trade_select ^ ")" in
+  let sampled = sprintf "(%s UNION %s)" candle_select trade_select in
+  let quote_tickers =
+    Db.rows store candle_select []
+    |> List.map ~f:(fun r -> col_text r.(0))
+    |> String.Set.of_list
+  in
+  let trade_tickers =
+    Db.rows store trade_select []
+    |> List.map ~f:(fun r -> col_text r.(0))
+    |> String.Set.of_list
   in
   let event_sizes =
     Db.rows
@@ -189,7 +232,10 @@ let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
   (* Candles -> snapshots, streaming row by row (there can be millions). *)
   let snapshots = ref [] in
   let flush ticker candles =
-    match Map.find by_ticker ticker with
+    match
+      Option.some_if (Set.mem quote_tickers ticker) ()
+      |> Option.bind ~f:(fun () -> Map.find by_ticker ticker)
+    with
     | None -> ()
     | Some (m : Market.t) ->
       let anchor =
@@ -234,8 +280,10 @@ let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
   let trades =
     Db.rows
       store
-      "SELECT trade_id, ticker, ts, yes_price, count, taker_side, is_block FROM trades \
-       WHERE ticker IN (SELECT ticker FROM trades_done)"
+      (sprintf
+         "SELECT trade_id, ticker, ts, yes_price, count, taker_side, is_block FROM \
+          trades WHERE ticker IN %s"
+         trade_set)
       []
     |> List.filter_map ~f:(fun r ->
       Option.map
@@ -253,7 +301,10 @@ let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
   let series_used = String.Set.of_list (List.map markets ~f:(fun m -> m.series_ticker)) in
   let event_driven = Map.count close_kinds ~f:(Close_kind.equal Event_driven) in
   ( { markets; snapshots = !snapshots; trades; fees = fees store ~series_used }
-  , { markets_loaded = List.length markets
+  , { population = Db.count store "SELECT COUNT(*) FROM markets" []
+    ; quote_sample = Set.length quote_tickers
+    ; trade_sample = Set.length trade_tickers
+    ; markets_loaded = List.length markets
     ; markets_without_event_metadata = !missing_meta
     ; event_driven_series = event_driven
     ; scheduled_series = Map.length close_kinds - event_driven

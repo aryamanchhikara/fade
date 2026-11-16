@@ -22,7 +22,7 @@ let command =
     ; "import-edgecheck", Cmd_import.command
     ; "freeze", Cmd_freeze.command
     ; "report", Cmd_report.command
-    ; "serve", Cmd_stubs.todo ~summary:"Serve the dashboard on localhost" ~phase:4
+    ; "serve", Cmd_serve.command
     ; "synth", Cmd_synth.command
     ; "cutoff", cutoff_command
     ]

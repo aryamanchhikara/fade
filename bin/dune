@@ -1,0 +1,17 @@
+(executable
+ (name fade)
+ (public_name fade)
+ ; macOS ld warns that async_ssl and conduit both link -lssl; harmless.
+ (link_flags
+  (-ccopt -Wl,-no_warn_duplicate_libraries))
+ (libraries
+  core
+  core_unix.command_unix
+  async
+  fade_types
+  fade_synth
+  fade_store
+  fade_analysis
+  kalshi)
+ (preprocess
+  (pps ppx_jane)))

@@ -1,0 +1,7 @@
+; SQLite cache at data/fade.db. Native only.
+
+(library
+ (name fade_store)
+ (libraries core core_unix sqlite3 fade_types)
+ (preprocess
+  (pps ppx_jane)))

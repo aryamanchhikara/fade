@@ -1,0 +1,11 @@
+; Integration tests over the synthetic fixtures. Unit tests live inline next to the
+; code in lib/. [deps] copies the fixture into the sandbox the tests run in.
+
+(library
+ (name fade_tests)
+ (libraries core fade_types fade_synth fade_analysis yojson)
+ (inline_tests
+  (deps
+   (glob_files fixtures/*.json)))
+ (preprocess
+  (pps ppx_jane)))

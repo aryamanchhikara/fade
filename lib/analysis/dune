@@ -1,0 +1,8 @@
+; Pure analysis: functions from data to numbers. No IO, no clock, no global RNG.
+
+(library
+ (name fade_analysis)
+ (libraries core fade_types digestif.ocaml yojson)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane)))

@@ -48,4 +48,26 @@ let counter (graph : Bonsai.graph) =
     ]
 ;;
 
-let () = Bonsai_web.Start.start counter
+(* Phase 1 check that lib/types compiles to JavaScript: decode a [Market.t] from JSON
+   with the very same [t_of_yojson] the native CLI uses. *)
+let shared_types_check =
+  let json =
+    {|{"ticker":"SYNX-1-M0","event_ticker":"SYNX-1","series_ticker":"SYNX","category":"Demo","open_time":1747353600,"close_time":1747440000,"settle_time":1747440300,"result":["No"],"volume":1234.5,"can_close_early":false,"event_kind":["Bracket"]}|}
+  in
+  let m = Fade_types.Market.t_of_yojson (Yojson.Safe.from_string json) in
+  Vdom.Node.p
+    ~attrs:[ Vdom.Attr.id "shared" ]
+    [ Vdom.Node.textf
+        "Decoded in the browser by Fade_types: %s resolved %s, %s"
+        m.ticker
+        (Fade_types.Side.to_string m.result)
+        (Fade_types.Event_kind.to_string m.event_kind)
+    ]
+;;
+
+let app graph =
+  let%arr counter = counter graph in
+  Vdom.Node.div [ counter; shared_types_check ]
+;;
+
+let () = Bonsai_web.Start.start app

@@ -1,0 +1,8 @@
+; Deterministic synthetic data: same seed, same bytes. Used for test fixtures and
+; `fade serve --demo`. Never mistaken for Kalshi data: every ticker starts with SYN.
+
+(library
+ (name fade_synth)
+ (libraries core yojson fade_types)
+ (preprocess
+  (pps ppx_jane)))

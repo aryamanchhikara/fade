@@ -1,0 +1,7 @@
+; Kalshi REST client. Native only: it links Async's Unix layer and OpenSSL.
+
+(library
+ (name kalshi)
+ (libraries core async cohttp cohttp-async uri yojson fade_types)
+ (preprocess
+  (pps ppx_jane ppx_yojson_conv)))

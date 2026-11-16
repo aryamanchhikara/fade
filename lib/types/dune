@@ -1,0 +1,9 @@
+; Shared types. No dependency here may be native-only, because web/ (compiled to
+; JavaScript by js_of_ocaml) links this library too. Core, sexplib and yojson are
+; all pure OCaml, so the same .ml files compile for both targets.
+
+(library
+ (name fade_types)
+ (libraries core ppx_yojson_conv_lib yojson)
+ (preprocess
+  (pps ppx_jane ppx_yojson_conv)))

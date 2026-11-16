@@ -4,6 +4,6 @@
 (executable
  (name main)
  (modes js)
- (libraries core bonsai bonsai.web)
+ (libraries core yojson bonsai bonsai.web fade_types)
  (preprocess
   (pps ppx_jane bonsai.ppx_bonsai)))

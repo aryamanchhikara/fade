@@ -15,7 +15,6 @@
 
 (package
  (name fade)
- (allow_empty)
  (synopsis "Out-of-sample test of whether buying NO on Kalshi is +EV after fees")
  (description
   "OCaml backend and Bonsai UI sharing types via js_of_ocaml. Fee-aware calibration, event-clustered bootstrap CIs, maker vs taker returns, frozen-rule out-of-time evaluation.")

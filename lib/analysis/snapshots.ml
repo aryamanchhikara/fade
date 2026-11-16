@@ -23,6 +23,22 @@ let window ?expected_expiration ~open_time ~close_time () =
   start, close_time
 ;;
 
+(* Kalshi returns at most 5,000 candles per request. When a market was expected to
+   expire long before it actually closed, [window] spans that whole gap, so request
+   the 25 hours before each possible anchor separately instead. Only those hours are
+   ever read. *)
+let windows ?expected_expiration ~open_time ~close_time () =
+  let ((start, stop) as whole) = window ?expected_expiration ~open_time ~close_time () in
+  match expected_expiration with
+  | Some expected when stop - start > 50 * 3600 ->
+    let before t = Int.max open_time (t - (25 * 3600)), t in
+    (* An expectation at or before the open has no horizon to read. *)
+    if expected <= open_time
+    then [ before close_time ]
+    else [ before expected; before close_time ]
+  | _ -> [ whole ]
+;;
+
 (* The quote for horizon [h] is the close of the latest candle that ends at or before
    the decision time [anchor - h], provided that candle ends within the hour before it
    (so the quote is at most an hour stale) and after the market opened. The market must
@@ -57,6 +73,26 @@ let of_candles ?anchor ~ticker ~open_time ~close_time (candles : candle list) =
           ; yes_bid = c.yes_bid
           ; yes_ask = c.yes_ask
           })
+;;
+
+let%expect_test "request windows: one, or two when the expectation is far before close" =
+  let h = 3600 in
+  let show ?expected_expiration ~open_time ~close_time () =
+    windows ?expected_expiration ~open_time ~close_time ()
+    |> List.iter ~f:(fun (a, b) -> printf "[%d, %d] " (a / h) (b / h));
+    print_endline ""
+  in
+  show ~open_time:0 ~close_time:(100 * h) ();
+  show ~open_time:0 ~close_time:(100 * h) ~expected_expiration:(90 * h) ();
+  show ~open_time:0 ~close_time:(10_000 * h) ~expected_expiration:(100 * h) ();
+  show ~open_time:(50 * h) ~close_time:(10_000 * h) ~expected_expiration:(40 * h) ();
+  [%expect
+    {|
+    [75, 100]
+    [65, 100]
+    [75, 100] [9975, 10000]
+    [9975, 10000]
+    |}]
 ;;
 
 let%expect_test "snapshot extraction" =

@@ -26,6 +26,9 @@ val get_json
   -> string
   -> Yojson.Safe.t Deferred.Or_error.t
 
+(** True for the [Error] that [get_json] returns on a 404 response. *)
+val is_not_found : Error.t -> bool
+
 (** Counters for the progress bar. *)
 val requests_sent : t -> int
 

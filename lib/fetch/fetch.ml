@@ -311,15 +311,37 @@ let save_candles store ~ticker (candles : Fade_types.Candle.t list) =
       [ text ticker; int (List.length candles) ])
 ;;
 
-let one_historical store client progress errors (p : pending) =
-  let start_ts, end_ts =
-    Fade_analysis.Snapshots.window
+let one_historical
+      ?(missing_means_none = false)
+      store
+      client
+      progress
+      errors
+      (p : pending)
+  =
+  let windows =
+    Fade_analysis.Snapshots.windows
       ?expected_expiration:p.expected_ts
       ~open_time:p.open_ts
       ~close_time:p.close_ts
       ()
   in
-  match%map E.historical_candles client ~ticker:p.ticker ~start_ts ~end_ts with
+  (* [Deferred.Or_error.List.concat_map] runs the requests one after another and stops
+     at the first [Error]. *)
+  match%map
+    Deferred.Or_error.List.concat_map
+      ~how:`Sequential
+      windows
+      ~f:(fun (start_ts, end_ts) ->
+        E.historical_candles client ~ticker:p.ticker ~start_ts ~end_ts)
+  with
+  | Error e when missing_means_none && Kalshi.Client.is_not_found e ->
+    (* A [when] guard: this arm matches only if the condition also holds. The market
+       is live, the live endpoint has no candles for it, and it is not in the
+       archive: Kalshi has no candles for it at all. Record it as done with none (no
+       quote at any horizon), or it would block the sample prefix on every rerun. *)
+    save_candles store ~ticker:p.ticker [];
+    Progress.advance progress
   | Error e ->
     incr errors;
     if !errors <= 5 then log "\ncandles %s: %s" p.ticker (Error.to_string_hum e);
@@ -407,7 +429,13 @@ let candles store client ~fraction ~market_cutoff =
             return ()
           | _ ->
             (* Archived since we listed it: ask the historical endpoint instead. *)
-            one_historical store client progress errors p))
+            one_historical
+              ~missing_means_none:(Result.is_ok result)
+              store
+              client
+              progress
+              errors
+              p))
   in
   let%map () =
     Deferred.List.iter

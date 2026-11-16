@@ -4,7 +4,7 @@ FADE = ./_build/default/bin/fade.exe
 
 # The pinned study. Changing any of these is a different study, not a rerun.
 SINCE = 2025-05-16
-CANDLE_FRACTION = 0.05
+CANDLE_FRACTION = 0.02
 TRADE_SAMPLE = 20000
 FROZEN = rules/frozen.json
 FROZEN_SHA = PENDING

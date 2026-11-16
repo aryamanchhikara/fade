@@ -3,6 +3,17 @@ open! Async
 
 let default_base_url = "https://external-api.kalshi.com/trade-api/v2"
 
+(* An exception used as a tag: a 404 is returned as [Error.of_exn (Http_not_found ...)],
+   and [Error.to_exn] hands back the same exception, so callers can tell "no such
+   resource" from other failures by pattern matching instead of parsing messages. *)
+exception Http_not_found of string * string [@@deriving sexp_of]
+
+let is_not_found e =
+  match Error.to_exn e with
+  | Http_not_found _ -> true
+  | _ -> false
+;;
+
 (* [mutable] fields can be updated in place with [<-]. Everything else in a record is
    immutable. *)
 type t =
@@ -119,6 +130,9 @@ let get_json t ?(query = []) path =
          |> Or_error.tag ~tag:(Uri.to_string uri))
     | `Status (429, _) -> retry "429"
     | `Status (code, _) when code >= 500 -> retry (Int.to_string code)
+    | `Status (404, body) ->
+      return
+        (Error (Error.of_exn (Http_not_found (Uri.to_string uri, String.prefix body 300))))
     | `Status (code, body) ->
       return
         (Or_error.error_s
@@ -129,4 +143,18 @@ let get_json t ?(query = []) path =
                ~body:(String.prefix body 300 : string)])
   in
   attempt 0
+;;
+
+(* Tagging wraps the error, so the exception is no longer at the top: check
+   [is_not_found] on the error [get_json] returned, before adding context. *)
+let%expect_test "404s are recognisable; tagged or other errors are not" =
+  let not_found = Error.of_exn (Http_not_found ("/historical/markets/X", "not found")) in
+  (* Under [open! Async], [printf] is Async's buffered writer; tests use Core's. *)
+  Core.printf
+    "%b %b %b\n"
+    (is_not_found not_found)
+    (is_not_found (Error.tag not_found ~tag:"context"))
+    (is_not_found (Error.of_string "Kalshi API error"));
+  [%expect {| true false false |}];
+  return ()
 ;;

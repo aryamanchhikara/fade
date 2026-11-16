@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # OCaml 5.1.1: the newest compiler Bonsai v0.17 supports (it caps js_of_ocaml
+      # below 5.7, and js_of_ocaml-compiler 5.6 caps OCaml below 5.2).
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.1.1
+          dune-cache: true
+
+      - name: Install dependencies
+        run: opam install . --deps-only --with-test --yes
+
+      - name: Build
+        run: opam exec -- dune build
+
+      - name: Expect tests
+        run: opam exec -- dune runtest
+
+      - name: Build the JS bundle (release)
+        run: opam exec -- dune build --profile release ./web/main.bc.js
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-js
+          path: _build/default/web/main.bc.js

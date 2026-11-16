@@ -52,6 +52,8 @@
   async_ssl
   sqlite3
   digestif
+  cohttp
+  uri
   ezgzip
   (js_of_ocaml
    (and

@@ -3,9 +3,6 @@
 (library
  (name fade_fetch)
  (libraries core core_unix async fade_types fade_analysis kalshi fade_store)
- (inline_tests
-  (executable
-   (link_flags
-    (:standard -ccopt -Wl,-no_warn_duplicate_libraries))))
+ (inline_tests)
  (preprocess
   (pps ppx_jane)))

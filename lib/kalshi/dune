@@ -12,9 +12,6 @@
   ezgzip
   fade_types
   fade_analysis)
- (inline_tests
-  (executable
-   (link_flags
-    (:standard -ccopt -Wl,-no_warn_duplicate_libraries))))
+ (inline_tests)
  (preprocess
   (pps ppx_jane ppx_yojson_conv)))

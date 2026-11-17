@@ -74,6 +74,9 @@ because each token round-trips through OCaml byte buffers.
      keys. `Load.dataset` only uses the complete key prefix, so a fetch stopped at any
      point still yields a uniform random sample.
    - Raw hourly candles are stored; quotes at each horizon are derived at load time.
+   - Once a listing completes, the population is pinned: later runs fetch missing
+     candles and trades but never list again. `--until` bounds a fresh listing to the
+     study window.
 2. **`Load.dataset`** classifies each series' close timing from timestamps alone,
    derives snapshots with the configured horizon anchor, and assembles a `Dataset.t`.
 3. **`fade freeze`** builds in-sample tables only, selects rules, and writes

@@ -23,6 +23,11 @@ let command =
          "--since"
          (optional string)
          ~doc:"YYYY-MM-DD first settlement date (default: 18 months ago)"
+     and until =
+       flag
+         "--until"
+         (optional string)
+         ~doc:"YYYY-MM-DD last settlement date, inclusive (default: none, list to today)"
      and db =
        flag "--db" (optional_with_default "data/fade.db" string) ~doc:"PATH SQLite cache"
      and min_volume =
@@ -66,6 +71,7 @@ let command =
        Fade_fetch.Fetch.run
          { db_path = db
          ; since = Unix_time.of_date_string_exn since
+         ; until = Option.map until ~f:Unix_time.of_date_string_exn
          ; min_volume
          ; candle_fraction
          ; trade_sample

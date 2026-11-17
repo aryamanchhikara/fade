@@ -20,6 +20,8 @@ module Config = struct
   type t =
     { db_path : string
     ; since : Unix_time.t
+    ; until : Unix_time.t option
+      (** last settlement date (inclusive); [None] lists everything settled so far *)
     ; min_volume : float
     ; candle_fraction : float
       (** fetch candles for markets whose [sample_key] falls in this fraction of the
@@ -217,14 +219,12 @@ let historical_markets store client ~since ~cutoff ~min_volume =
     loop (Option.value (Store.get_meta store "historical_markets_cursor") ~default:"") 0 0)
 ;;
 
-let live_markets store client ~since ~cutoff ~min_volume =
+let live_markets store client ~since ~until ~cutoff ~min_volume =
   let progress = Progress.create "live mkts" in
   let min_settled_ts = Int.max since cutoff in
   let rec loop cursor kept_total =
     let%bind page = E.settled_markets client ~min_settled_ts ~cursor >>| ok_exn in
-    let kept =
-      save_page store ~source:"live" ~since ~until:Int.max_value ~min_volume page.markets
-    in
+    let kept = save_page store ~source:"live" ~since ~until ~min_volume page.markets in
     let kept_total = kept_total + kept in
     Progress.advance progress ~note:(sprintf "pages; %d in scope" kept_total);
     if String.is_empty page.cursor
@@ -557,16 +557,29 @@ let run (config : Config.t) =
     (Unix_time.to_rfc3339 market_cutoff)
     config.db_path;
   let wants s = List.mem config.stages s ~equal:Stage.equal in
+  (* [until] is a date, inclusive: keep markets settled before the next midnight. *)
+  let until =
+    Option.value_map config.until ~default:Int.max_value ~f:(fun d -> d + 86_400)
+  in
   let%bind () = if wants Reference then reference store client else return () in
   let%bind () =
-    if wants Markets
-    then (
+    match wants Markets, Store.get_meta store "last_listed" with
+    | false, _ -> return ()
+    | true, Some listed ->
+      (* Once a listing has completed, the population is pinned: listing again would
+         add newly settled markets and shift the samples. *)
+      return
+        (log
+           "markets: listed at %s; the population is pinned (start a new cache to list \
+            again)"
+           listed)
+    | true, None ->
       let%bind () =
         historical_markets
           store
           client
           ~since
-          ~cutoff:market_cutoff
+          ~cutoff:(Int.min market_cutoff until)
           ~min_volume:config.min_volume
       in
       let%map () =
@@ -574,14 +587,14 @@ let run (config : Config.t) =
           store
           client
           ~since
+          ~until
           ~cutoff:market_cutoff
           ~min_volume:config.min_volume
       in
       Store.set_meta
         store
         "last_listed"
-        (Unix_time.to_rfc3339 (Float.to_int (Unix.time ()))))
-    else return ()
+        (Unix_time.to_rfc3339 (Float.to_int (Unix.time ())))
   in
   let%bind () =
     if wants Events

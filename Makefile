@@ -4,10 +4,11 @@ FADE = ./_build/default/bin/fade.exe
 
 # The pinned study. Changing any of these is a different study, not a rerun.
 SINCE = 2025-05-16
+UNTIL = 2026-11-16
 CANDLE_FRACTION = 0.02
 TRADE_SAMPLE = 20000
 FROZEN = rules/frozen.json
-FROZEN_SHA = PENDING
+FROZEN_SHA = 4a9021cb1f5d09d5ca53951ad7b6468f2baa7b0336dc5e8d4efc8e0e00498e54
 
 .PHONY: help build test web demo serve fmt fetch reproduce figures
 
@@ -39,7 +40,7 @@ fmt:
 
 # Resumable: an existing data/fade.db is reused and only missing pieces are fetched.
 fetch: web
-	$(FADE) fetch --since $(SINCE) --candle-fraction $(CANDLE_FRACTION) --trade-sample $(TRADE_SAMPLE)
+	$(FADE) fetch --since $(SINCE) --until $(UNTIL) --candle-fraction $(CANDLE_FRACTION) --trade-sample $(TRADE_SAMPLE)
 
 # The frozen rules are committed and never regenerated here: freezing again after seeing
 # out-of-time results would defeat the test. `fade report` checks the file's hash, and

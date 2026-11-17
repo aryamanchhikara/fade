@@ -449,16 +449,9 @@ let candles store client ~fraction ~market_cutoff =
 
 (* --- trades ------------------------------------------------------------------- *)
 
-let trades store client ~sample ~max_pages ~trades_cutoff =
-  let pending =
-    Store.rows
-      store
-      "SELECT s.ticker, s.open_ts, s.close_ts FROM (SELECT ticker, open_ts, close_ts, \
-       sample_key FROM markets ORDER BY sample_key LIMIT ?) s LEFT JOIN trades_done d \
-       USING (ticker) WHERE d.ticker IS NULL ORDER BY s.sample_key"
-      [ int sample ]
-    |> List.map ~f:(fun r -> col_text r.(0), col_int r.(1), col_int r.(2))
-  in
+(* Every trade of each [(ticker, open_ts, close_ts)] in [pending], newest first, up to
+   [max_pages] pages per endpoint. *)
+let trades_of_pending store client ~pending ~max_pages ~trades_cutoff =
   let progress = Progress.create ~total:(List.length pending) "trades" in
   let errors = ref 0 in
   let fetch_all ~historical ticker =
@@ -520,6 +513,20 @@ let trades store client ~sample ~max_pages ~trades_cutoff =
   in
   Progress.finish progress;
   if !errors > 0 then log "trades: %d markets failed; rerun to retry them" !errors
+;;
+
+(* The trade sample: the first [sample] markets in [sample_key] order. *)
+let trades store client ~sample ~max_pages ~trades_cutoff =
+  let pending =
+    Store.rows
+      store
+      "SELECT s.ticker, s.open_ts, s.close_ts FROM (SELECT ticker, open_ts, close_ts, \
+       sample_key FROM markets ORDER BY sample_key LIMIT ?) s LEFT JOIN trades_done d \
+       USING (ticker) WHERE d.ticker IS NULL ORDER BY s.sample_key"
+      [ int sample ]
+    |> List.map ~f:(fun r -> col_text r.(0), col_int r.(1), col_int r.(2))
+  in
+  trades_of_pending store client ~pending ~max_pages ~trades_cutoff
 ;;
 
 (* --- driver ------------------------------------------------------------------- *)

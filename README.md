@@ -43,15 +43,67 @@ Fee is per contract for a 100-contract taker order. Break-even is the win rate n
 
 These came out of looking at the full report after the rules were frozen. None of them is a result.
 
-- **Fills tell a different story from quotes.** Whoever ended up holding NO at 90-95¢ in the last hour made money, whether they took the trade (+3.1% per dollar out-of-time, 95% CI +0.7% to +5.1%) or made it (+4.9%, +2.5% to +6.5%). The same cells were positive in-sample (+4.3% and +4.9%). The frozen selection covered quotes only, and 299 of 3,321 in-sample trade cells cleared zero, so this is a candidate for the next frozen test, not a finding.
-- **A likely reason quotes lose.** Quote cells weight every sampled market equally, and many are thin an hour before close. Fills are weighted by contracts and come from markets where people trade. An ask in a thin book is not a probability: with a 3¢ bid and a 97¢ ask, both YES and NO cost 97¢. In a one-off check of in-sample 1h quotes, YES asks at 95-99¢ won 97% of the time when the spread was at most 5¢ (230 quotes) and 66% when it was wider (512).
+- **The 90-95¢ NO fills: a pre-registered candidate under forward test.** Whoever ended up holding NO at 90-95¢ in the last hour made money, whether they took the trade (+3.1% per dollar out-of-time, 95% CI +0.7% to +5.1%) or made it (+4.9%, +2.5% to +6.5%), and the same cells were positive in-sample. The study window has now been looked at, so it cannot confirm this. Two executable versions were locked in [`rules/candidate.json`](rules/candidate.json) (sha256 `ceca2b0c97a2953ba0b7dbf23e5026b0bcfd7273379133ea2d5ab492b9fa467a`) before any newer data was fetched, and are being [forward-tested](#forward-test) on markets settled from 2026-11-17. As one order per market an hour before close, neither made money in-sample.
+- **Thin books.** At 1h before close, 64.8% of the 23,283 sampled markets with a quote had no tight book: 37.7% were one-sided, and 43.5% of the two-sided ones were wider than 5¢ (by category below; `fade spreads` prints it). Quote cells weight every sampled market equally, so many are thin; fills are weighted by contracts and come from markets where people trade. An ask in a thin book is not a probability: with a 3¢ bid and a 97¢ ask, both YES and NO cost 97¢. In a one-off check of in-sample 1h quotes, YES asks at 95-99¢ won 97% of the time when the spread was at most 5¢ (230 quotes) and 66% when it was wider (512).
 - **One out-of-time quote cell cleared zero:** NO at 20-25¢, 24h before close, top volume tercile (n = 103, +50.8%, CI +11.8% to +92.2%). That is 1 of 586 out-of-time NO cells across all horizons and segments, about what chance alone produces.
+
+<details>
+<summary>The book 1h before close, by category (sampled markets, whole window)</summary>
+
+| Category | Quoted | One-sided | Two-sided, spread > 5¢ | Not tight (either) |
+| --- | ---: | ---: | ---: | ---: |
+| All categories | 23,283 | 37.7% | 43.5% | 64.8% |
+| Sports | 18,618 | 32.0% | 43.9% | 61.8% |
+| Climate and Weather | 1,193 | 89.9% | 48.8% | 94.8% |
+| Commodities | 902 | 33.6% | 53.8% | 69.3% |
+| Financials | 768 | 36.2% | 26.3% | 53.0% |
+| Crypto | 691 | 67.0% | 41.2% | 80.6% |
+| Economics | 495 | 51.7% | 41.0% | 71.5% |
+| Entertainment | 265 | 72.5% | 43.8% | 84.5% |
+| Mentions | 196 | 88.8% | 27.3% | 91.8% |
+| Politics | 96 | 43.8% | 27.8% | 59.4% |
+| Science and Technology | 42 | 85.7% | 33.3% | 90.5% |
+| Elections | 15 | 40.0% | 33.3% | 60.0% |
+
+Health and World had one quoted market each. "Two-sided, spread > 5¢" is a share of the two-sided books.
+</details>
+
+## Forward test
+
+![The Forward test tab](docs/assets/forward.png)
+
+The candidate is being paper-traded on markets that settle after the study window. No orders are placed.
+
+| Rule | Definition (1h before the scheduled close, volume ≥ 500) |
+| --- | --- |
+| A, taker | Buy NO at the ask when the NO ask is 90-95¢ and the spread is at most 5¢. Fees for 100-contract orders. |
+| B, maker | Rest a 1-contract NO bid at the best NO bid when it is 90-95¢. Filled only if a later trade before close prints strictly below it. |
+| B-loose, maker | As B, but a trade at our price also counts as a fill. |
+
+**Locked first.** [`rules/candidate.json`](rules/candidate.json) (sha256 `ceca2b0c97a2953ba0b7dbf23e5026b0bcfd7273379133ea2d5ab492b9fa467a`) holds the rules, the config and the in-sample numbers below. It was committed and pushed before `fade forward` fetched anything, and `fade forward` refuses a file that no longer matches its hash.
+
+**In-sample** (the study's in-sample events, settled before 2026-05-16; B uses the trade sample, since a fill needs every trade):
+
+| Rule | Orders | Fills | Win rate | Break-even | Return / $ | 95% CI (event-clustered) |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| A | 186 | 186 | 90.3% | 92.9% | -2.7% | -8.2% to +1.3% |
+| B | 170 | 66 | 83.3% | 92.5% | -9.9% | -21.6% to -0.5% |
+| B-loose | 170 | 72 | 84.7% | 92.6% | -8.5% | -19.3% to +0.3% |
+
+The resting bid shows adverse selection: it fills when the price trades through it, and those fills won 83% of the time against a 92.5% break-even.
+
+**Window and stopping.** Markets settled 2026-11-17 to 2027-01-15 (60 days), the whole population rather than a sample. After each run the tab shows each rule's return per dollar, its event-clustered CI and roughly how many more events it needs for the CI to exclude zero. A rule stops at the first run where its CI clears zero on either side; otherwise it is inconclusive when the 60 days end. Checking after every run raises the false-positive rate above the nominal 5%, so a rule that clears zero early deserves a second, fixed-length test.
+
+```sh
+make forward           # fetch newly settled markets, score, write web/data/forward.json
+make forward-install   # optional: run it daily at 06:30 with launchd (macOS); make forward-uninstall
+```
 
 ### The pinned study
 
 | | |
 | --- | --- |
-| Data window | Kalshi markets settled 2025-05-16 to 2026-11-16 with volume ≥ 500: 2,756,872 markets |
+| Data window | Kalshi markets settled 2025-05-16 to 2026-11-16 with lifetime volume ≥ 500 contracts (applied when listing, so every sampled market meets it): 2,756,872 markets |
 | Quote sample | 55,252 markets (2%, uniform by MD5 of the ticker) in 50,289 events |
 | Trade sample | 20,000 markets (the first 20,000 in the same order), 12,453,934 trades |
 | Split | cutoff 2026-05-16: 15,097 in-sample events, 35,092 out-of-time, 100 embargoed |
@@ -85,12 +137,18 @@ flowchart LR
   R -->|fade report| D[report.json]
   C --> D
   D -->|fade serve| E[Bonsai dashboard]
+  K[rules/candidate.json<br/>SHA-256] -->|fade forward| F[forward.json]
+  A -->|newly settled markets| F
+  F --> E
 ```
 
 - **`fade fetch`** lists every settled market in the window from Kalshi's public API (no account needed), then fetches hourly candles for the quote sample and every public fill for the trade sample. It is resumable and idempotent, backs off on 429s and shows a progress bar.
 - **`fade freeze`** builds in-sample tables only, selects rules and writes them with a hash.
 - **`fade report`** checks the hash, builds every table for both samples, scores the frozen rules out-of-time, prints the main tables and writes `web/data/report.json`.
-- **`fade serve`** serves the dashboard on localhost. `fade serve --demo` uses synthetic data and labels itself as synthetic.
+- **`fade candidate`** scores the forward-test rules in-sample and locks them, with those numbers, in `rules/candidate.json`.
+- **`fade forward`** fetches markets settled in the forward window into its own cache (`data/forward.db`), scores the locked rules and writes `web/data/forward.json`.
+- **`fade spreads`** prints how often the book was one-sided or wide, by category.
+- **`fade serve`** serves the dashboard on localhost (Study and Forward test tabs). `fade serve --demo` uses synthetic data and labels itself as synthetic.
 
 ## The test
 
@@ -102,7 +160,7 @@ flowchart LR
 
 **Splits.** Category, volume tercile (bounds from in-sample markets), single markets vs bracket events vs other multi-market events, and scheduled vs event-driven close. One dimension at a time, with a minimum of 30 markets per cell.
 
-More views: [all three horizons](docs/assets/horizons.png), [makers in real fills](docs/assets/makers.png), [in-sample](docs/assets/in-sample.png).
+More views: [all three horizons](docs/assets/horizons.png), [makers in real fills](docs/assets/makers.png), [in-sample](docs/assets/in-sample.png), [the forward test](docs/assets/forward.png).
 
 ## Tech highlights
 
@@ -123,6 +181,7 @@ More views: [all three horizons](docs/assets/horizons.png), [makers in real fill
 - **Win-rate intervals ignore clustering.** The Wilson interval on the win rate treats observations as independent; in the trade view that makes it far too narrow. The return interval, which decides every verdict, resamples events.
 - **Trades.** At most 20 pages per market and endpoint: 92 of the 20,000 markets were truncated, and they are flagged in the cache. Block trades are excluded.
 - **One out-of-time window.** Six months is one market regime, and Kalshi's mix of markets changed quickly over the window. A rule that survives here is a candidate, not a law.
+- **Forward test.** Maker fills are judged from public trades (no queue position), and a market with no trades after the decision counts as unfilled. The forward fetch lists markets from Kalshi's live endpoints, so it must run at least every few weeks: markets that move to the historical archive before a run lists them are missed.
 
 ## Layout
 
@@ -131,9 +190,11 @@ More views: [all three horizons](docs/assets/horizons.png), [makers in real fill
 | `lib/types` | shared records (native + JS) |
 | `lib/kalshi` | API client and decoders |
 | `lib/fetch`, `lib/store` | `fade fetch`, SQLite cache, dataset loader |
-| `lib/analysis` | fees, statistics, tables, freezing, report (pure) |
+| `lib/analysis` | fees, statistics, tables, freezing, report, candidate scoring (pure) |
 | `lib/synth` | deterministic synthetic data for tests and the demo |
 | `bin/` | the `fade` CLI |
+| `rules/` | the study's frozen rules and the forward-test candidate, both hashed |
+| `scripts/` | figures, PNG compression, the launchd job and its template |
 | `web/` | Bonsai dashboard |
 | `test/` | integration tests on synthetic fixtures |
 

@@ -8,15 +8,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Dune's own build cache, kept by actions/cache below (setup-ocaml's dune-cache
+      # input is deprecated).
+      DUNE_CACHE: enabled
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # OCaml 5.1.1: the newest compiler Bonsai v0.17 supports (it caps js_of_ocaml
-      # below 5.7, and js_of_ocaml-compiler 5.6 caps OCaml below 5.2).
+      # below 5.7, and js_of_ocaml-compiler 5.6 caps OCaml below 5.2). setup-ocaml
+      # caches the opam switch itself (its default `cache: true`).
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: 5.1.1
-          dune-cache: true
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/dune
+          key: dune-${{ runner.os }}-${{ hashFiles('dune-project', 'fade.opam') }}-${{ github.sha }}
+          restore-keys: |
+            dune-${{ runner.os }}-${{ hashFiles('dune-project', 'fade.opam') }}-
 
       - name: Install dependencies
         run: opam install . --deps-only --with-test --yes
@@ -30,7 +41,7 @@ jobs:
       - name: Build the JS bundle (release)
         run: opam exec -- dune build --profile release ./web/main.bc.js
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dashboard-js
           path: _build/default/web/main.bc.js

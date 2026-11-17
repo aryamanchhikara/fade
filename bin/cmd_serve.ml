@@ -52,12 +52,22 @@ let command =
      in
      fun () ->
        (* The demo report is computed once at startup, entirely in memory. *)
-       let report_body =
+       let report_body, forward_body =
          match source with
-         | Data_source.Demo _ ->
+         | Data_source.Demo fixtures ->
            let r = Cmd_report.build_report source ~frozen_path:"rules/frozen.demo.json" in
-           Some (Yojson.Safe.to_string (Fade_types.Report.yojson_of_t r))
-         | Db _ -> None
+           let f = Cmd_forward.demo_report ~fixtures in
+           ( Some (Yojson.Safe.to_string (Fade_types.Report.yojson_of_t r))
+           , Some (Yojson.Safe.to_string (Fade_types.Forward.yojson_of_t f)) )
+         | Db _ -> None, None
+       in
+       let json_or_file body ~path =
+         match body with
+         | Some body ->
+           Cohttp_async.Server.respond_string
+             ~headers:(Cohttp.Header.of_list [ "content-type", "application/json" ])
+             body
+         | None -> respond_file path
        in
        let report_path = Option.value report ~default:(web_dir ^/ "data/report.json") in
        let handler ~body:_ _addr (req : Cohttp.Request.t) =
@@ -65,13 +75,9 @@ let command =
          | "/" | "/index.html" -> respond_file (web_dir ^/ "index.html")
          | "/style.css" -> respond_file (web_dir ^/ "style.css")
          | "/main.bc.js" -> respond_file js
-         | "/data/report.json" ->
-           (match report_body with
-            | Some body ->
-              Cohttp_async.Server.respond_string
-                ~headers:(Cohttp.Header.of_list [ "content-type", "application/json" ])
-                body
-            | None -> respond_file report_path)
+         | "/data/report.json" -> json_or_file report_body ~path:report_path
+         | "/data/forward.json" ->
+           json_or_file forward_body ~path:(web_dir ^/ "data/forward.json")
          | _ -> Cohttp_async.Server.respond_string ~status:`Not_found "not found\n"
        in
        let%bind _server =

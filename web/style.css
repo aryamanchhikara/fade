@@ -34,6 +34,13 @@ header h1::after { content: ""; display: inline-block; width: 8px; height: 8px; 
   font: 600 12px/1.4 var(--mono); letter-spacing: 0.04em;
 }
 
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin: 0 0 18px; border-bottom: 1px solid var(--line); }
+.tab { appearance: none; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 8px 14px; margin-bottom: -1px; font: 600 14px/1 var(--sans); cursor: pointer; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 /* Verdict */
 .verdict { border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; background: var(--panel); }
 .verdict.green { border-left-color: var(--green); background: linear-gradient(90deg, var(--green-bg), var(--panel) 60%); }
@@ -114,6 +121,32 @@ tbody tr:last-child td { border-bottom: 0; }
 tr.thin td { color: var(--faint); }
 tr.pos td { background: var(--green-bg); color: #b8f0c2; }
 tr.pos td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+
+/* Forward test */
+.forest { margin-bottom: 18px; }
+.forest svg { max-height: 300px; }
+.zero { stroke: var(--muted); stroke-width: 1.2; }
+.fp-id { fill: var(--text); font: 600 13px var(--mono); }
+.fp-label { fill: var(--muted); font: 12px var(--mono); }
+.fp-label.is { fill: var(--text); }
+.fp-note { fill: var(--faint); font: 12px var(--mono); }
+.fp-whisker { stroke-width: 2.5; stroke-linecap: round; }
+.fp-dot { stroke: var(--bg); stroke-width: 1.5; }
+.fp-row.is .fp-whisker { stroke: var(--faint); }
+.fp-row.is .fp-dot { fill: var(--muted); }
+.fp-row.fwd .fp-whisker { stroke: var(--accent); }
+.fp-row.fwd .fp-dot { fill: var(--accent); }
+.fp-row.pos .fp-whisker { stroke: var(--green); }
+.fp-row.pos .fp-dot { fill: var(--green); }
+.fp-row.neg .fp-whisker { stroke: var(--red); }
+.fp-row.neg .fp-dot { fill: var(--red); }
+.fp-dot.thin { fill: none !important; stroke: var(--faint); }
+tr.rule-head td { background: var(--panel-2); white-space: normal; padding-top: 11px; padding-bottom: 9px; }
+.rule-desc { margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font: 600 11px/1.5 var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.badge.green { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+.badge.red { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+tr.neg td { color: #f3a6a1; }
 
 /* States */
 .state { padding: 28px; text-align: center; color: var(--muted); }

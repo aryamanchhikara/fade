@@ -7,32 +7,29 @@ let cls = Vdom.Attr.class_
 
 (* ---- loading report.json ---------------------------------------------------- *)
 
+(* ['a t] is a type with a parameter: [Report.t Load.t] while report.json loads,
+   [Forward.t Load.t] for forward.json. *)
 module Load = struct
-  type t =
+  type 'a t =
     | Loading
-    | Loaded of Report.t
+    | Loaded of 'a
     | Failed of string
 end
 
-let report_url = "data/report.json"
-
-(* Fetch and decode report.json once, when the app starts. [Effect.of_deferred_thunk]
-   wraps an Async computation as a Bonsai effect; [Bonsai.Edge.lifecycle ~on_activate]
-   runs it when the component first appears. The decoding uses the same
-   [Report.t_of_yojson] the native CLI used to write the file (see [Json_js] for why
-   the browser's JSON.parse does the parsing). *)
-let load_report (graph : Bonsai.graph) =
+(* Fetch and decode a JSON file once, when the component first appears.
+   [Effect.of_deferred_thunk] wraps an Async computation as a Bonsai effect;
+   [Bonsai.Edge.lifecycle ~on_activate] runs it on activation. The decoder is the same
+   [t_of_yojson] the native CLI used to write the file (see [Json_js] for why the
+   browser's JSON.parse does the parsing). *)
+let load_json ~url ~decode (graph : Bonsai.graph) =
   let state, set_state = Bonsai.state Load.Loading graph in
   let on_activate =
     let%arr set_state = set_state in
-    match%bind.Effect
-      Effect.of_deferred_thunk (fun () -> Async_js.Http.get report_url)
-    with
+    match%bind.Effect Effect.of_deferred_thunk (fun () -> Async_js.Http.get url) with
     | Error e ->
-      set_state
-        (Failed (sprintf "Could not fetch %s: %s" report_url (Error.to_string_hum e)))
+      set_state (Failed (sprintf "Could not fetch %s: %s" url (Error.to_string_hum e)))
     | Ok body ->
-      (match Report.t_of_yojson (Json_js.parse body) with
+      (match decode (Json_js.parse body) with
        | r -> set_state (Loaded r)
        | exception Ppx_yojson_conv_lib.Yojson_conv.Of_yojson_error (exn, _) ->
          set_state
@@ -40,11 +37,10 @@ let load_report (graph : Bonsai.graph) =
               (sprintf
                  "%s does not match this version of the dashboard (%s). Rebuild it with \
                   the same fade binary."
-                 report_url
+                 url
                  (Exn.to_string exn)))
        | exception exn ->
-         set_state
-           (Failed (sprintf "%s could not be read: %s" report_url (Exn.to_string exn))))
+         set_state (Failed (sprintf "%s could not be read: %s" url (Exn.to_string exn))))
   in
   Bonsai.Edge.lifecycle ~on_activate graph;
   state
@@ -254,8 +250,8 @@ let footer (r : Report.t) =
     ]
 ;;
 
-let dashboard (graph : Bonsai.graph) =
-  let load = load_report graph in
+let study (graph : Bonsai.graph) =
+  let load = load_json ~url:"data/report.json" ~decode:Report.t_of_yojson graph in
   let filters, inject = filters_state graph in
   let hovered, set_hovered = Bonsai.state (None : (Horizon.t * float) option) graph in
   (* Build the table index once per loaded report, not on every filter change: this
@@ -426,17 +422,7 @@ let dashboard (graph : Bonsai.graph) =
         ]
     in
     Vdom.Node.div
-      ~attrs:[ cls "app" ]
       [ synthetic_banner
-      ; Vdom.Node.header
-          [ Vdom.Node.h1 [ Vdom.Node.text "fade" ]
-          ; Vdom.Node.p
-              ~attrs:[ cls "tagline" ]
-              [ Vdom.Node.text
-                  "Does buying NO on Kalshi win more often than its price implies, after \
-                   fees?"
-              ]
-          ]
       ; verdict_view r
       ; filters_view
       ; Vdom.Node.p
@@ -474,7 +460,106 @@ let dashboard (graph : Bonsai.graph) =
       ]
 ;;
 
+(* ---- the Forward test tab -------------------------------------------------------- *)
+
+let forward (graph : Bonsai.graph) =
+  let load = load_json ~url:"data/forward.json" ~decode:Forward.t_of_yojson graph in
+  let%arr load = load in
+  match load with
+  | Loading ->
+    Vdom.Node.div
+      ~attrs:[ cls "state loading" ]
+      [ Vdom.Node.text "Loading forward test..." ]
+  | Failed msg ->
+    Vdom.Node.div
+      ~attrs:[ cls "state error" ]
+      [ Vdom.Node.h2 [ Vdom.Node.text "Could not load the forward test" ]
+      ; Vdom.Node.p [ Vdom.Node.text msg ]
+      ; Vdom.Node.p
+          [ Vdom.Node.text "Build it with "
+          ; Vdom.Node.code [ Vdom.Node.text "fade forward" ]
+          ; Vdom.Node.text "."
+          ]
+      ]
+  | Loaded f -> Forward_view.view f
+;;
+
+(* ---- tabs ------------------------------------------------------------------------ *)
+
+module Tab = struct
+  type t =
+    | Study
+    | Forward
+  [@@deriving sexp, equal]
+
+  let hash = function
+    | Study -> ""
+    | Forward -> "#forward"
+  ;;
+end
+
+(* The URL's #fragment picks the first tab, so a link (or a reload) can open the
+   Forward test directly. [##.] is js_of_ocaml syntax for reading a JavaScript
+   property. *)
+let initial_tab () : Tab.t =
+  let open Js_of_ocaml in
+  if String.equal (Js.to_string Dom_html.window##.location##.hash) "#forward"
+  then Forward
+  else Study
+;;
+
+let set_url_hash (tab : Tab.t) =
+  Effect.of_thunk (fun () ->
+    let open Js_of_ocaml in
+    Dom_html.window##.location##.hash := Js.string (Tab.hash tab))
+;;
+
+let app (graph : Bonsai.graph) =
+  let tab, set_tab = Bonsai.state (initial_tab ()) graph in
+  (* [match%sub] picks a component from a Bonsai value. Only the active branch is
+     running, so forward.json is fetched the first time its tab is opened. *)
+  let body =
+    match%sub tab with
+    | Study -> study graph
+    | Forward -> forward graph
+  in
+  let%arr tab = tab
+  and set_tab = set_tab
+  and body = body in
+  let tab_button (t : Tab.t) ~id label =
+    let on = Tab.equal t tab in
+    Vdom.Node.button
+      ~attrs:
+        [ cls (if on then "tab on" else "tab")
+        ; Vdom.Attr.id id
+        ; Vdom.Attr.create "role" "tab"
+        ; Vdom.Attr.create "aria-selected" (Bool.to_string on)
+        ; Vdom.Attr.on_click (fun _ -> Effect.Many [ set_tab t; set_url_hash t ])
+        ]
+      [ Vdom.Node.text label ]
+  in
+  Vdom.Node.div
+    ~attrs:[ cls "app" ]
+    [ Vdom.Node.header
+        [ Vdom.Node.h1 [ Vdom.Node.text "fade" ]
+        ; Vdom.Node.p
+            ~attrs:[ cls "tagline" ]
+            [ Vdom.Node.text
+                "Does buying NO on Kalshi win more often than its price implies, after \
+                 fees?"
+            ]
+        ]
+    ; Vdom.Node.create
+        "nav"
+        ~attrs:[ cls "tabs"; Vdom.Attr.create "role" "tablist" ]
+        [ tab_button Study ~id:"tab-study" "Study"
+        ; tab_button Forward ~id:"tab-forward" "Forward test"
+        ]
+    ; body
+    ]
+;;
+
 let () =
   Async_js.init ();
-  Bonsai_web.Start.start dashboard
+  Bonsai_web.Start.start app
 ;;

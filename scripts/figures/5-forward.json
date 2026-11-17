@@ -1,0 +1,7 @@
+[
+  {"waitFor": "document.querySelector('#verdict') !== null"},
+  {"eval": "(() => { document.querySelector('#tab-forward').click(); return 'forward'; })()"},
+  {"waitFor": "document.querySelector('#forward-status') !== null"},
+  {"wait": 400},
+  {"shot": "docs/assets/forward.png"}
+]

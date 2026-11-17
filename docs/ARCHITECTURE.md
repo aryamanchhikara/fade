@@ -22,7 +22,7 @@ to native code, once to JavaScript with js_of_ocaml.
 | `lib/store` | `fade_store` | native | SQLite cache (`data/fade.db`), schema, and `Load.dataset`, which turns the cache into a `Dataset.t`. |
 | `lib/fetch` | `fade_fetch` | native | The `fade fetch` stages and the read-only edgecheck import. |
 | `lib/synth` | `fade_synth` | native + JS | Deterministic synthetic data for tests and `fade serve --demo`. |
-| `bin` | `fade.exe` | native | The CLI: `fetch`, `import-edgecheck`, `freeze`, `report`, `serve`, `synth`, `cutoff`. |
+| `bin` | `fade.exe` | native | The CLI: `fetch`, `import-edgecheck`, `freeze`, `report`, `candidate`, `forward`, `spreads`, `serve`, `synth`, `cutoff`. |
 | `web` | `main.bc.js` | JS | The Bonsai dashboard. |
 | `test` | `fade_tests` | native | Integration expect tests over `test/fixtures/synthetic.json`. |
 
@@ -83,8 +83,27 @@ because each token round-trips through OCaml byte buffers.
    `rules/frozen.json` with a SHA-256 over the canonical JSON of config and rules.
 4. **`fade report`** verifies the hash, builds every table for both samples, scores the
    frozen rules out-of-time, and writes `report.json`.
-5. **`fade serve`** serves `web/index.html`, `web/style.css`, the JS bundle and
-   `report.json` on localhost.
+5. **`fade serve`** serves `web/index.html`, `web/style.css`, the JS bundle,
+   `report.json` and `forward.json` on localhost.
+
+## The forward test
+
+- **`fade candidate`** scores the rules in `Fade_analysis.Candidate_file` on the
+  study's in-sample events (`Candidate_score`, pure) and writes `rules/candidate.json`
+  with a SHA-256 over the config, rules and those numbers. It was committed before any
+  forward data existed.
+- **`fade forward`** (`Fade_fetch.Forward_fetch`) keeps its own cache,
+  `data/forward.db`, tied to the candidate's hash. Each run lists markets settled in
+  the forward window from two days before the previous listing, fetches candles for
+  all of them (batch endpoint, 100 markets a request) and trades only where a maker
+  rule would have rested a bid. `Load.dataset ~complete_prefix:false` loads the whole
+  cache, since it is the population rather than a sample.
+- `Forward_builder` (pure) scores each rule, projects how many more events its CI
+  needs, and decides its status. A rule that has concluded is recorded in the
+  cache's `meta` table, so later runs cannot overturn the conclusion.
+- The dashboard's Forward test tab (`web/forward_view.ml`) reads
+  `web/data/forward.json` through the same `Forward.t_of_yojson` the CLI wrote it
+  with.
 
 ## The dashboard (Bonsai)
 

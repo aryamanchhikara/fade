@@ -141,23 +141,26 @@ let print_report (r : Report.t) ~frozen_path =
     r.verdict.detail
 ;;
 
+(* The study's frozen rules: the file, or for --demo without one, a freeze done in
+   memory on the fixtures' own in-sample half. *)
+let load_frozen source ~frozen_path =
+  match Sys_unix.file_exists_exn frozen_path, source with
+  | true, _ -> Frozen.of_string (In_channel.read_all frozen_path) |> ok_exn
+  | false, Data_source.Demo _ ->
+    let d = Data_source.load source ~anchor:Schedule in
+    Report_builder.freeze
+      ~frozen_at:(Data_source.now_string ())
+      ~config:(Report_builder.default_config d)
+      d
+  | false, Db _ ->
+    raise_s
+      [%message
+        "no frozen rules; run `fade freeze` first (it only looks at in-sample data)"
+          (frozen_path : string)]
+;;
+
 let build_report source ~frozen_path =
-  let frozen =
-    match Sys_unix.file_exists_exn frozen_path, source with
-    | true, _ -> Frozen.of_string (In_channel.read_all frozen_path) |> ok_exn
-    | false, Data_source.Demo _ ->
-      (* The demo freezes in memory, from the fixtures' own in-sample half. *)
-      let d = Data_source.load source ~anchor:Schedule in
-      Report_builder.freeze
-        ~frozen_at:(Data_source.now_string ())
-        ~config:(Report_builder.default_config d)
-        d
-    | false, Db _ ->
-      raise_s
-        [%message
-          "no frozen rules; run `fade freeze` first (it only looks at in-sample data)"
-            (frozen_path : string)]
-  in
+  let frozen = load_frozen source ~frozen_path in
   let d, sampling = Data_source.load_with_sampling source ~anchor:frozen.config.anchor in
   Report_builder.build
     ?sampling

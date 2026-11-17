@@ -34,6 +34,8 @@ module Stats = struct
     { population : int (** markets in scope that were listed *)
     ; quote_sample : int (** markets in the complete candle-sample prefix *)
     ; trade_sample : int (** markets in the complete trade-sample prefix *)
+    ; trade_tickers : String.Set.t
+      (** the trade sample itself: markets whose every trade is loaded *)
     ; markets_loaded : int
     ; markets_without_event_metadata : int
     ; event_driven_series : int
@@ -117,7 +119,9 @@ let fees store ~series_used : Fee_schedule.t =
   { series; event_overrides }
 ;;
 
-let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
+(* [complete_prefix:false] loads every market that has been fetched, for caches that
+   are not a sample (the forward test fetches the whole population). *)
+let dataset ?(complete_prefix = true) store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
   let close_kinds = close_kinds store in
   (* Samples are drawn in [sample_key] order, so the usable sample is the complete
      prefix: every market whose key is below the first key not yet fetched. Wherever a
@@ -135,8 +139,9 @@ let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
     | [ [| Sqlite3.Data.INT k |] ] -> Int64.to_int_exn k
     | _ -> Int.max_value
   in
-  let candle_limit = first_missing "candles_done" in
-  let trade_limit = first_missing "trades_done" in
+  let limit table = if complete_prefix then first_missing table else Int.max_value in
+  let candle_limit = limit "candles_done" in
+  let trade_limit = limit "trades_done" in
   (* Bare SELECTs; wrapped in parentheses where used with IN. *)
   let candle_select =
     sprintf
@@ -304,6 +309,7 @@ let dataset store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
   , { population = Db.count store "SELECT COUNT(*) FROM markets" []
     ; quote_sample = Set.length quote_tickers
     ; trade_sample = Set.length trade_tickers
+    ; trade_tickers
     ; markets_loaded = List.length markets
     ; markets_without_event_metadata = !missing_meta
     ; event_driven_series = event_driven

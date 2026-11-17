@@ -1,0 +1,124 @@
+{
+  "frozen_at": "2026-11-17T04:08:29Z",
+  "config": {
+    "study_hash": "4a9021cb1f5d09d5ca53951ad7b6468f2baa7b0336dc5e8d4efc8e0e00498e54",
+    "in_sample_since": "2025-05-16",
+    "in_sample_cutoff": "2026-05-16",
+    "forward_start": "2026-11-17",
+    "forward_days": 60,
+    "min_volume": 500.0,
+    "anchor": [ "Schedule" ],
+    "min_n": 30,
+    "bootstrap_resamples": 1000,
+    "seed": 20260516,
+    "stop_rule": "Each rule is checked after every forward run. It stops at the first check where its 95% event-clustered return CI (needs n >= min_n fills) is entirely above or below zero, or when the forward window of forward_days ends; otherwise it is inconclusive. Checking repeatedly inflates the false-positive rate above 5%."
+  },
+  "rules": [
+    {
+      "id": "A",
+      "execution": [ "Taker_at_ask" ],
+      "side": [ "No" ],
+      "horizon": [ "H1" ],
+      "lo": 90.0,
+      "hi": 95.0,
+      "max_spread": 5.0,
+      "contracts": 100.0
+    },
+    {
+      "id": "B",
+      "execution": [ "Maker_bid", [ "Through" ] ],
+      "side": [ "No" ],
+      "horizon": [ "H1" ],
+      "lo": 90.0,
+      "hi": 95.0,
+      "max_spread": null,
+      "contracts": 1.0
+    },
+    {
+      "id": "B-loose",
+      "execution": [ "Maker_bid", [ "At_or_through" ] ],
+      "side": [ "No" ],
+      "horizon": [ "H1" ],
+      "lo": 90.0,
+      "hi": 95.0,
+      "max_spread": null,
+      "contracts": 1.0
+    }
+  ],
+  "in_sample": [
+    {
+      "rule_id": "A",
+      "orders": 186,
+      "result": {
+        "lo": 90.0,
+        "hi": 95.0,
+        "n": 186,
+        "n_events": 185,
+        "contracts": 186.0,
+        "wins": 168.0,
+        "win_rate": 0.9032258064516129,
+        "win_ci": { "lo": 0.8522260691158052, "hi": 0.9379069236024791 },
+        "avg_price": 92.35537634408601,
+        "avg_fee": 0.4971505376344081,
+        "breakeven": 0.928525268817203,
+        "mean_return": -0.02724692931385586,
+        "return_ci": {
+          "lo": -0.08234542943992852,
+          "hi": 0.01309516480949214
+        },
+        "enough": true
+      }
+    },
+    {
+      "rule_id": "B",
+      "orders": 170,
+      "result": {
+        "lo": 90.0,
+        "hi": 95.0,
+        "n": 66,
+        "n_events": 66,
+        "contracts": 66.0,
+        "wins": 55.0,
+        "win_rate": 0.8333333333333334,
+        "win_ci": { "lo": 0.7256941288004796, "hi": 0.9043041665238262 },
+        "avg_price": 92.10757575757576,
+        "avg_fee": 0.40757575757575754,
+        "breakeven": 0.9251515151515152,
+        "mean_return": -0.09924664264657714,
+        "return_ci": {
+          "lo": -0.21559429248556092,
+          "hi": -0.004869590187777792
+        },
+        "enough": true
+      }
+    },
+    {
+      "rule_id": "B-loose",
+      "orders": 170,
+      "result": {
+        "lo": 90.0,
+        "hi": 95.0,
+        "n": 72,
+        "n_events": 72,
+        "contracts": 72.0,
+        "wins": 61.0,
+        "win_rate": 0.8472222222222222,
+        "win_ci": { "lo": 0.7467771063249946, "hi": 0.912492912705243 },
+        "avg_price": 92.16805555555555,
+        "avg_fee": 0.41527777777777775,
+        "breakeven": 0.9258333333333333,
+        "mean_return": -0.0849084908490849,
+        "return_ci": {
+          "lo": -0.19340006517552333,
+          "hi": 0.0032943995208146153
+        },
+        "enough": true
+      }
+    }
+  ],
+  "hash": "ceca2b0c97a2953ba0b7dbf23e5026b0bcfd7273379133ea2d5ab492b9fa467a",
+  "notes": [
+    "In-sample: 15097 events settled before 2026-05-16. Rule A uses the quote sample; B and B-loose use markets with complete trades (the trade sample).",
+    "Forward window: markets settled from 2026-11-17 for 60 days, fetched only after this file was committed."
+  ]
+}

@@ -5,10 +5,14 @@ open Fade_types
 
 let lo_of ~width price = Float.round_down (price /. width) *. width
 
-let result
+(* [compute] takes the few parameters it needs directly, so the candidate scorer can use
+   it without a study [Config.t]; [result] is the study's wrapper. *)
+let compute
       ?(rng : Random.State.t option)
-      ~(config : Config.t)
+      ~min_n
+      ~resamples
       ~lo
+      ~hi
       (obs : Observation.t list)
   : Bucket_result.t
   =
@@ -19,7 +23,7 @@ let result
   let total_cost = sum (fun o -> o.weight *. Observation.cost o) in
   let total_profit = sum (fun o -> o.weight *. Observation.profit o) in
   let win_rate = if Float.( > ) contracts 0. then wins /. contracts else 0. in
-  let enough = n >= config.min_n in
+  let enough = n >= min_n in
   (* Return per dollar staked: total profit over total cost. In the quote view every
      observation is one contract, so this is "buy one contract in each market". *)
   let mean_return =
@@ -47,9 +51,7 @@ let result
          2. Wilson interval on the win rate using the number of *events* as the sample
             size (conservative for clustering, and well behaved at 0 or n losses),
             mapped to a return: profit per dollar is linear in the win rate. *)
-      let boot =
-        Stats.cluster_bootstrap ~rng ~resamples:config.bootstrap_resamples clusters
-      in
+      let boot = Stats.cluster_bootstrap ~rng ~resamples clusters in
       let n_eff = Float.of_int n_events in
       let w = Stats.wilson ~successes:(win_rate *. n_eff) ~n:n_eff in
       let to_return rate = ((100. *. rate) -. avg_cost) /. avg_cost in
@@ -61,7 +63,7 @@ let result
     | _ -> None
   in
   { lo
-  ; hi = lo +. config.bucket_width
+  ; hi
   ; n
   ; n_events
   ; contracts
@@ -81,4 +83,14 @@ let result
   ; return_ci
   ; enough
   }
+;;
+
+let result ?rng ~(config : Config.t) ~lo obs =
+  compute
+    ?rng
+    ~min_n:config.min_n
+    ~resamples:config.bootstrap_resamples
+    ~lo
+    ~hi:(lo +. config.bucket_width)
+    obs
 ;;

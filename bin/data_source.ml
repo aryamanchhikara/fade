@@ -26,8 +26,8 @@ let is_demo = function
   | Db _ -> false
 ;;
 
-(* The dataset, plus (population, quote sample, trade sample) for real data. *)
-let load_with_sampling t ~(anchor : Anchor.t) : Dataset.t * (int * int * int) option =
+(* The dataset, plus the cache's sampling statistics for real data. *)
+let load_with_stats t ~(anchor : Anchor.t) : Dataset.t * Fade_store.Load.Stats.t option =
   match t with
   | Demo path -> Fade_synth.of_json_string (In_channel.read_all path), None
   | Db path ->
@@ -54,7 +54,15 @@ let load_with_sampling t ~(anchor : Anchor.t) : Dataset.t * (int * int * int) op
        *. Float.of_int stats.quote_sample
        /. Float.of_int (Int.max 1 stats.population))
       stats.trade_sample;
-    d, Some (stats.population, stats.quote_sample, stats.trade_sample)
+    d, Some stats
+;;
+
+(* The dataset, plus (population, quote sample, trade sample) for real data. *)
+let load_with_sampling t ~anchor =
+  let d, stats = load_with_stats t ~anchor in
+  ( d
+  , Option.map stats ~f:(fun (s : Fade_store.Load.Stats.t) ->
+      s.population, s.quote_sample, s.trade_sample) )
 ;;
 
 let load t ~anchor = fst (load_with_sampling t ~anchor)

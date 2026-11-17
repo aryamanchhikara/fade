@@ -22,6 +22,7 @@ let command =
     ; "import-edgecheck", Cmd_import.command
     ; "freeze", Cmd_freeze.command
     ; "report", Cmd_report.command
+    ; "candidate", Cmd_candidate.command
     ; "serve", Cmd_serve.command
     ; "synth", Cmd_synth.command
     ; "cutoff", cutoff_command

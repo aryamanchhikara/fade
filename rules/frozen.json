@@ -1,0 +1,22 @@
+{
+  "frozen_at": "2026-11-17T01:14:47Z",
+  "config": {
+    "data_since": "2025-05-16",
+    "data_until": "2026-11-16",
+    "cutoff": "2026-05-16",
+    "min_n": 30,
+    "bucket_width": 5.0,
+    "contracts_per_order": 100.0,
+    "bootstrap_resamples": 1000,
+    "seed": 20260516,
+    "volume_tercile_bounds": [ 2350.33, 13517.0 ],
+    "anchor": [ "Schedule" ],
+    "selection": "in-sample, NO side, taker at quoted ask: every (horizon, segment, 5c bucket) cell with n >= min_n whose 95% event-clustered bootstrap return CI is entirely above zero"
+  },
+  "rules": [],
+  "hash": "4a9021cb1f5d09d5ca53951ad7b6468f2baa7b0336dc5e8d4efc8e0e00498e54",
+  "examined": 496,
+  "notes": [
+    "15097 in-sample events, 100 embargoed; 0 rules selected from 496 cells examined"
+  ]
+}

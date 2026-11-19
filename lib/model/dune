@@ -1,0 +1,19 @@
+; Model training: the hand-written logistic regression (pure, in lib/analysis), the
+; LightGBM command-line tool (run as a separate process), and saving models with a
+; hash. Native only (it writes files and runs programs).
+
+(library
+ (name fade_model)
+ (libraries
+  core
+  core_unix
+  core_unix.sys_unix
+  core_unix.filename_unix
+  fade_types
+  fade_analysis
+  digestif.ocaml
+  yojson
+  ppx_yojson_conv_lib)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_yojson_conv)))

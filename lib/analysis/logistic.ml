@@ -108,9 +108,41 @@ let loss_and_gradient t ~(x : float array array) ~(y : bool array) ~lambda =
   (!loss /. nf) +. (lambda /. 2. *. !penalty), grad_w, !grad_b /. nf
 ;;
 
+(* Just the gradient (no logs, so cheaper than [loss_and_gradient]): the inner loop of
+   gradient descent only needs the direction downhill. *)
+let gradient t ~(x : float array array) ~(y : bool array) ~lambda =
+  let n = Array.length x in
+  let d = Array.length t.weights in
+  let grad_w = Array.create ~len:d 0. in
+  let grad_b = ref 0. in
+  for i = 0 to n - 1 do
+    let row = x.(i) in
+    let z = ref t.intercept in
+    for j = 0 to d - 1 do
+      z := !z +. (t.weights.(j) *. row.(j))
+    done;
+    let err = sigmoid !z -. if y.(i) then 1. else 0. in
+    grad_b := !grad_b +. err;
+    for j = 0 to d - 1 do
+      grad_w.(j) <- grad_w.(j) +. (err *. row.(j))
+    done
+  done;
+  let nf = Float.of_int n in
+  for j = 0 to d - 1 do
+    grad_w.(j) <- (grad_w.(j) /. nf) +. (lambda *. t.weights.(j))
+  done;
+  grad_w, !grad_b /. nf
+;;
+
 (* Gradient descent with Nesterov momentum. Stops when the gradient is essentially zero
-   (we are at the bottom of the bowl) or after [max_iter] steps. *)
-let fit_gd ?(lambda = 0.) ?(max_iter = 20_000) ?(tol = 1e-9) ~x ~y () =
+   (we are at the bottom of the bowl) or after [max_iter] steps. [init] starts from an
+   earlier solution ("warm start"), e.g. the fit for a nearby L2 strength.
+
+   A note on tolerance: when features are nearly collinear (the price spline), the bowl
+   has long flat directions where the loss barely changes. Descent creeps along them,
+   but they are also directions in which the predictions barely change, so a looser
+   [tol] stops early without changing what the model predicts in any way that matters. *)
+let fit_gd ?(lambda = 0.) ?(max_iter = 20_000) ?(tol = 1e-9) ?init ~x ~y () =
   let d = if Array.is_empty x then 0 else Array.length x.(0) in
   let n = Float.of_int (Array.length x) in
   (* Curvature bound M, and the safe step size eta = 1 / M. *)
@@ -122,7 +154,9 @@ let fit_gd ?(lambda = 0.) ?(max_iter = 20_000) ?(tol = 1e-9) ~x ~y () =
     +. lambda
   in
   let eta = 1. /. m in
-  let current = ref { intercept = 0.; weights = Array.create ~len:d 0. } in
+  let current =
+    ref (Option.value init ~default:{ intercept = 0.; weights = Array.create ~len:d 0. })
+  in
   let previous = ref !current in
   let rec loop k =
     (* Look-ahead point: current + (k - 1) / (k + 2) * (current - previous). *)
@@ -135,7 +169,7 @@ let fit_gd ?(lambda = 0.) ?(max_iter = 20_000) ?(tol = 1e-9) ~x ~y () =
             w +. (mu *. (w -. !previous.weights.(j))))
       }
     in
-    let _, gw, gb = loss_and_gradient ahead ~x ~y ~lambda in
+    let gw, gb = gradient ahead ~x ~y ~lambda in
     (* One step downhill from the look-ahead point. *)
     let next =
       { intercept = ahead.intercept -. (eta *. gb)

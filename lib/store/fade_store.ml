@@ -3,3 +3,4 @@
    [Fade_store.open_], [Fade_store.exec], ... *)
 include Db
 module Load = Load
+module Pit_load = Pit_load

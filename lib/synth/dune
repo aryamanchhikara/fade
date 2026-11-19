@@ -3,6 +3,6 @@
 
 (library
  (name fade_synth)
- (libraries core yojson fade_types)
+ (libraries core yojson fade_types fade_analysis)
  (preprocess
   (pps ppx_jane)))

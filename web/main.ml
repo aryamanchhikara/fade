@@ -187,6 +187,7 @@ let explain (r : Report.t) (f : Filters.t) segment_name =
     (Side.to_string f.side)
     (match r.config.anchor with
      | Schedule -> " (horizons count back from the scheduled close)"
+     | Expected -> " (horizons count back from the expected expiration)"
      | Close -> "")
 ;;
 
@@ -484,17 +485,44 @@ let forward (graph : Bonsai.graph) =
   | Loaded f -> Forward_view.view f
 ;;
 
+(* ---- the Explain tab ------------------------------------------------------------- *)
+
+let explain (graph : Bonsai.graph) =
+  let load = load_json ~url:"data/explain.json" ~decode:Explain.t_of_yojson graph in
+  let selected, select = Bonsai.state "spread" graph in
+  let%arr load = load
+  and selected = selected
+  and select = select in
+  match load with
+  | Loading ->
+    Vdom.Node.div ~attrs:[ cls "state loading" ] [ Vdom.Node.text "Loading explain..." ]
+  | Failed msg ->
+    Vdom.Node.div
+      ~attrs:[ cls "state error" ]
+      [ Vdom.Node.h2 [ Vdom.Node.text "Could not load the explain report" ]
+      ; Vdom.Node.p [ Vdom.Node.text msg ]
+      ; Vdom.Node.p
+          [ Vdom.Node.text "Build it with "
+          ; Vdom.Node.code [ Vdom.Node.text "fade explain" ]
+          ; Vdom.Node.text "."
+          ]
+      ]
+  | Loaded e -> Explain_view.view e ~selected ~select
+;;
+
 (* ---- tabs ------------------------------------------------------------------------ *)
 
 module Tab = struct
   type t =
     | Study
     | Forward
+    | Explain
   [@@deriving sexp, equal]
 
   let hash = function
     | Study -> ""
     | Forward -> "#forward"
+    | Explain -> "#explain"
   ;;
 end
 
@@ -503,9 +531,10 @@ end
    property. *)
 let initial_tab () : Tab.t =
   let open Js_of_ocaml in
-  if String.equal (Js.to_string Dom_html.window##.location##.hash) "#forward"
-  then Forward
-  else Study
+  match Js.to_string Dom_html.window##.location##.hash with
+  | "#forward" -> Forward
+  | "#explain" -> Explain
+  | _ -> Study
 ;;
 
 let set_url_hash (tab : Tab.t) =
@@ -522,6 +551,7 @@ let app (graph : Bonsai.graph) =
     match%sub tab with
     | Study -> study graph
     | Forward -> forward graph
+    | Explain -> explain graph
   in
   let%arr tab = tab
   and set_tab = set_tab
@@ -554,6 +584,7 @@ let app (graph : Bonsai.graph) =
         ~attrs:[ cls "tabs"; Vdom.Attr.create "role" "tablist" ]
         [ tab_button Study ~id:"tab-study" "Study"
         ; tab_button Forward ~id:"tab-forward" "Forward test"
+        ; tab_button Explain ~id:"tab-explain" "Explain"
         ]
     ; body
     ]

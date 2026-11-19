@@ -148,6 +148,11 @@ tr.rule-head td { background: var(--panel-2); white-space: normal; padding-top: 
 .badge.red { color: var(--red); border-color: var(--red); background: var(--red-bg); }
 tr.neg td { color: #f3a6a1; }
 
+/* Explain */
+.segmented.wrap { flex-wrap: wrap; }
+.lvl-label { fill: var(--text); font: 12px var(--mono); }
+.lvl-sub { fill: var(--faint); font: 11px var(--mono); }
+
 /* States */
 .state { padding: 28px; text-align: center; color: var(--muted); }
 .state.loading { padding-top: 120px; font-family: var(--mono); }

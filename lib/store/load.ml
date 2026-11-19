@@ -121,7 +121,16 @@ let fees store ~series_used : Fee_schedule.t =
 
 (* [complete_prefix:false] loads every market that has been fetched, for caches that
    are not a sample (the forward test fetches the whole population). *)
-let dataset ?(complete_prefix = true) store ~(anchor : Anchor.t) : Dataset.t * Stats.t =
+(* [max_trade_sample] caps the trade sample at the first N markets in key order: the
+   study pins it at 20,000 even after more trades are fetched for the model work. *)
+let dataset
+      ?(complete_prefix = true)
+      ?max_trade_sample
+      ?(with_trades = true)
+      store
+      ~(anchor : Anchor.t)
+  : Dataset.t * Stats.t
+  =
   let close_kinds = close_kinds store in
   (* Samples are drawn in [sample_key] order, so the usable sample is the complete
      prefix: every market whose key is below the first key not yet fetched. Wherever a
@@ -141,7 +150,23 @@ let dataset ?(complete_prefix = true) store ~(anchor : Anchor.t) : Dataset.t * S
   in
   let limit table = if complete_prefix then first_missing table else Int.max_value in
   let candle_limit = limit "candles_done" in
-  let trade_limit = limit "trades_done" in
+  let trade_limit =
+    match max_trade_sample with
+    | None -> limit "trades_done"
+    | Some n ->
+      (* The key of the (n+1)-th market: keys below it are the first n. *)
+      let cap =
+        match
+          Db.rows
+            store
+            "SELECT sample_key FROM markets ORDER BY sample_key LIMIT 1 OFFSET ?"
+            [ Sqlite3.Data.INT (Int64.of_int n) ]
+        with
+        | [ [| Sqlite3.Data.INT k |] ] -> Int64.to_int_exn k
+        | _ -> Int.max_value
+      in
+      Int.min cap (limit "trades_done")
+  in
   (* Bare SELECTs; wrapped in parentheses where used with IN. *)
   let candle_select =
     sprintf
@@ -283,25 +308,28 @@ let dataset ?(complete_prefix = true) store ~(anchor : Anchor.t) : Dataset.t * S
          :: !acc);
   Option.iter !current ~f:(fun t -> flush t !acc);
   let trades =
-    Db.rows
-      store
-      (sprintf
-         "SELECT trade_id, ticker, ts, yes_price, count, taker_side, is_block FROM \
-          trades WHERE ticker IN %s"
-         trade_set)
-      []
-    |> List.filter_map ~f:(fun r ->
-      Option.map
-        (Side.of_kalshi_string (String.lowercase (col_text r.(5))))
-        ~f:(fun taker_side ->
-          { Trade.trade_id = col_text r.(0)
-          ; ticker = col_text r.(1)
-          ; ts = col_int_exn r.(2)
-          ; yes_price = Option.value_exn (col_float r.(3))
-          ; count = Option.value_exn (col_float r.(4))
-          ; taker_side
-          ; is_block = Option.value_map (col_int r.(6)) ~default:false ~f:(( = ) 1)
-          }))
+    if not with_trades
+    then []
+    else
+      Db.rows
+        store
+        (sprintf
+           "SELECT trade_id, ticker, ts, yes_price, count, taker_side, is_block FROM \
+            trades WHERE ticker IN %s"
+           trade_set)
+        []
+      |> List.filter_map ~f:(fun r ->
+        Option.map
+          (Side.of_kalshi_string (String.lowercase (col_text r.(5))))
+          ~f:(fun taker_side ->
+            { Trade.trade_id = col_text r.(0)
+            ; ticker = col_text r.(1)
+            ; ts = col_int_exn r.(2)
+            ; yes_price = Option.value_exn (col_float r.(3))
+            ; count = Option.value_exn (col_float r.(4))
+            ; taker_side
+            ; is_block = Option.value_map (col_int r.(6)) ~default:false ~f:(( = ) 1)
+            }))
   in
   let series_used = String.Set.of_list (List.map markets ~f:(fun m -> m.series_ticker)) in
   let event_driven = Map.count close_kinds ~f:(Close_kind.equal Event_driven) in

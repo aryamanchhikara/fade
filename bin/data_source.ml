@@ -26,6 +26,11 @@ let is_demo = function
   | Db _ -> false
 ;;
 
+(* The study's trade sample, pinned like TRADE_SAMPLE in the Makefile. The cache may
+   hold trades for more markets (fetched for the predictive model); the study never
+   sees them. *)
+let study_trade_sample = 20_000
+
 (* The dataset, plus the cache's sampling statistics for real data. *)
 let load_with_stats t ~(anchor : Anchor.t) : Dataset.t * Fade_store.Load.Stats.t option =
   match t with
@@ -34,7 +39,9 @@ let load_with_stats t ~(anchor : Anchor.t) : Dataset.t * Fade_store.Load.Stats.t
     if not (Sys_unix.file_exists_exn path)
     then raise_s [%message "no cache found; run `fade fetch` first" (path : string)];
     let store = Fade_store.open_ path in
-    let (d : Dataset.t), stats = Fade_store.Load.dataset store ~anchor in
+    let (d : Dataset.t), stats =
+      Fade_store.Load.dataset store ~anchor ~max_trade_sample:study_trade_sample
+    in
     Fade_store.close store;
     eprintf
       "loaded %d markets (%d without event metadata), %d snapshots, %d trades; %d \

@@ -25,6 +25,8 @@ let command =
     ; "candidate", Cmd_candidate.command
     ; "forward", Cmd_forward.command
     ; "spreads", Cmd_spreads.command
+    ; "recheck", Cmd_recheck.command
+    ; "explain", Cmd_explain.command
     ; "serve", Cmd_serve.command
     ; "synth", Cmd_synth.command
     ; "cutoff", cutoff_command

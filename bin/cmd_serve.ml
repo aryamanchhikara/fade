@@ -52,14 +52,17 @@ let command =
      in
      fun () ->
        (* The demo report is computed once at startup, entirely in memory. *)
-       let report_body, forward_body =
+       let report_body, forward_body, explain_body =
          match source with
          | Data_source.Demo fixtures ->
            let r = Cmd_report.build_report source ~frozen_path:"rules/frozen.demo.json" in
            let f = Cmd_forward.demo_report ~fixtures in
            ( Some (Yojson.Safe.to_string (Fade_types.Report.yojson_of_t r))
-           , Some (Yojson.Safe.to_string (Fade_types.Forward.yojson_of_t f)) )
-         | Db _ -> None, None
+           , Some (Yojson.Safe.to_string (Fade_types.Forward.yojson_of_t f))
+           , Some
+               (Yojson.Safe.to_string
+                  (Fade_types.Explain.yojson_of_t (Cmd_explain.demo_report ()))) )
+         | Db _ -> None, None, None
        in
        let json_or_file body ~path =
          match body with
@@ -78,6 +81,8 @@ let command =
          | "/data/report.json" -> json_or_file report_body ~path:report_path
          | "/data/forward.json" ->
            json_or_file forward_body ~path:(web_dir ^/ "data/forward.json")
+         | "/data/explain.json" ->
+           json_or_file explain_body ~path:(web_dir ^/ "data/explain.json")
          | _ -> Cohttp_async.Server.respond_string ~status:`Not_found "not found\n"
        in
        let%bind _server =

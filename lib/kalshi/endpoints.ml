@@ -257,6 +257,17 @@ let historical_markets client ~cursor =
     ~query:([ "limit", "1000"; "mve_filter", "exclude" ] @ opt_cursor cursor)
 ;;
 
+(* Every market of one event, open or settled: the archive for markets settled before
+   the historical cutoff, the live endpoint after it. *)
+let event_markets client ~historical ~event_ticker ~cursor =
+  get
+    client
+    (if historical then "/historical/markets" else "/markets")
+    "event markets"
+    Markets_page.t_of_yojson
+    ~query:([ "limit", "1000"; "event_ticker", event_ticker ] @ opt_cursor cursor)
+;;
+
 let settled_markets client ~min_settled_ts ~cursor =
   get
     client

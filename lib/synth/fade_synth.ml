@@ -286,3 +286,6 @@ let to_json_string (d : Dataset.t) =
 ;;
 
 let of_json_string s = Dataset.t_of_yojson (Yojson.Safe.from_string s)
+
+(* Point-in-time synthetic markets for the predictive-model demo and tests. *)
+module Synth_pit = Synth_pit

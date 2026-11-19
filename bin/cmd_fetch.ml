@@ -61,10 +61,12 @@ let command =
        flag
          "--stages"
          (optional_with_default
-            (List.map Fade_fetch.Fetch.Stage.all ~f:(fun s ->
+            (List.map Fade_fetch.Fetch.Stage.study ~f:(fun s ->
                String.lowercase (Sexp.to_string (Fade_fetch.Fetch.Stage.sexp_of_t s))))
             (Arg_type.comma_separated string))
-         ~doc:"LIST reference,markets,events,candles,trades (default all)"
+         ~doc:
+           "LIST reference,markets,events,candles,trades (the default), plus \
+            model_trades,event_markets for the predictive model"
      in
      fun () ->
        let since = Option.value_or_thunk since ~default:eighteen_months_ago in

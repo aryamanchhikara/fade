@@ -25,6 +25,29 @@ let statements =
         source TEXT NOT NULL,
         sample_key INTEGER NOT NULL)|}
   ; {|CREATE INDEX IF NOT EXISTS markets_event ON markets(event_ticker)|}
+  ; (* Every market of each sampled event with its creation and open times, whatever
+       its volume, so "markets in the event at time t" can be counted point-in-time. *)
+    {|CREATE TABLE IF NOT EXISTS event_markets (
+        ticker TEXT PRIMARY KEY,
+        event_ticker TEXT NOT NULL,
+        created_ts INTEGER NOT NULL,
+        open_ts INTEGER NOT NULL)|}
+  ; {|CREATE INDEX IF NOT EXISTS event_markets_event ON event_markets(event_ticker)|}
+  ; {|CREATE TABLE IF NOT EXISTS event_markets_done (
+        event_ticker TEXT PRIMARY KEY, n_markets INTEGER NOT NULL)|}
+  ; (* Trades fetched for the predictive model. Kept apart from [trades] so that the
+       study's trade sample (and so its report) never changes: the model reads both. *)
+    {|CREATE TABLE IF NOT EXISTS model_trades_extra (
+        trade_id TEXT PRIMARY KEY,
+        ticker TEXT NOT NULL,
+        ts INTEGER NOT NULL,
+        yes_price REAL NOT NULL,
+        count REAL NOT NULL,
+        taker_side TEXT NOT NULL,
+        is_block INTEGER NOT NULL)|}
+  ; {|CREATE INDEX IF NOT EXISTS model_trades_extra_ticker ON model_trades_extra(ticker)|}
+  ; {|CREATE TABLE IF NOT EXISTS model_trades_done (
+        ticker TEXT PRIMARY KEY, n_trades INTEGER NOT NULL, truncated INTEGER NOT NULL)|}
   ; {|CREATE INDEX IF NOT EXISTS markets_key ON markets(sample_key)|}
   ; {|CREATE TABLE IF NOT EXISTS events (
         event_ticker TEXT PRIMARY KEY,

@@ -11,8 +11,12 @@ module Stage = struct
     | Events
     | Candles
     | Trades
+    | Model_trades (** trades for every quote-sample market with candles *)
+    | Event_markets (** each sampled event's markets with creation times *)
   [@@deriving sexp, compare, equal, enumerate]
 
+  (* The default `fade fetch` runs the study's stages; the model stages are opt-in. *)
+  let study = [ Reference; Markets; Events; Candles; Trades ]
   let of_string s = t_of_sexp (Sexp.Atom (String.capitalize s))
 end
 
@@ -451,7 +455,15 @@ let candles store client ~fraction ~market_cutoff =
 
 (* Every trade of each [(ticker, open_ts, close_ts)] in [pending], newest first, up to
    [max_pages] pages per endpoint. *)
-let trades_of_pending store client ~pending ~max_pages ~trades_cutoff =
+let trades_of_pending
+      ?(trades_table = "trades")
+      ?(done_table = "trades_done")
+      store
+      client
+      ~pending
+      ~max_pages
+      ~trades_cutoff
+  =
   let progress = Progress.create ~total:(List.length pending) "trades" in
   let errors = ref 0 in
   let fetch_all ~historical ticker =
@@ -490,8 +502,10 @@ let trades_of_pending store client ~pending ~max_pages ~trades_cutoff =
             List.iter all ~f:(fun (t : Trade.t) ->
               Store.exec
                 store
-                "INSERT OR IGNORE INTO trades(trade_id, ticker, ts, yes_price, count, \
-                 taker_side, is_block) VALUES (?,?,?,?,?,?,?)"
+                (sprintf
+                   "INSERT OR IGNORE INTO %s(trade_id, ticker, ts, yes_price, count, \
+                    taker_side, is_block) VALUES (?,?,?,?,?,?,?)"
+                   trades_table)
                 [ text t.trade_id
                 ; text t.ticker
                 ; int t.ts
@@ -502,8 +516,9 @@ let trades_of_pending store client ~pending ~max_pages ~trades_cutoff =
                 ]);
             Store.exec
               store
-              "INSERT OR REPLACE INTO trades_done(ticker, n_trades, truncated) VALUES \
-               (?,?,?)"
+              (sprintf
+                 "INSERT OR REPLACE INTO %s(ticker, n_trades, truncated) VALUES (?,?,?)"
+                 done_table)
               [ text ticker; int (List.length all); bool (ht || lt) ]);
           Progress.advance progress
         | Error e, _ | _, Error e ->
@@ -513,6 +528,100 @@ let trades_of_pending store client ~pending ~max_pages ~trades_cutoff =
   in
   Progress.finish progress;
   if !errors > 0 then log "trades: %d markets failed; rerun to retry them" !errors
+;;
+
+(* For the predictive model: complete trades (volume and trade count to date, price
+   moves) for every quote-sample market that has candles, refetching ones the study
+   truncated. Written to [model_trades_extra] / [model_trades_done] only: the study's
+   [trades] table, and so its report, never changes. *)
+let model_trades store client ~fraction ~max_pages ~trades_cutoff =
+  let pending =
+    Store.rows
+      store
+      "SELECT m.ticker, m.open_ts, m.close_ts FROM markets m JOIN candles_done c USING \
+       (ticker) LEFT JOIN trades_done d USING (ticker) LEFT JOIN model_trades_done x \
+       USING (ticker) WHERE m.sample_key < ? AND c.n_candles > 0 AND x.ticker IS NULL \
+       AND (d.ticker IS NULL OR d.truncated = 1) ORDER BY m.sample_key"
+      [ int (key_threshold fraction) ]
+    |> List.map ~f:(fun r -> col_text r.(0), col_int r.(1), col_int r.(2))
+  in
+  trades_of_pending
+    ~trades_table:"model_trades_extra"
+    ~done_table:"model_trades_done"
+    store
+    client
+    ~pending
+    ~max_pages
+    ~trades_cutoff
+;;
+
+(* Each sampled event's full market list (any volume) with creation times. Events
+   whose in-scope markets all settled before the archive cutoff are only in the
+   archive; others may be in either, so both endpoints are asked. *)
+let event_markets store client ~fraction ~market_cutoff =
+  let pending =
+    Store.rows
+      store
+      "SELECT m.event_ticker, MAX(m.settle_ts) FROM markets m JOIN candles_done c USING \
+       (ticker) LEFT JOIN event_markets_done d USING (event_ticker) WHERE m.sample_key < \
+       ? AND c.n_candles > 0 AND d.event_ticker IS NULL GROUP BY m.event_ticker"
+      [ int (key_threshold fraction) ]
+    |> List.map ~f:(fun r -> col_text r.(0), col_int r.(1))
+  in
+  let progress = Progress.create ~total:(List.length pending) "event markets" in
+  let errors = ref 0 in
+  let fetch_all ~historical event_ticker =
+    let rec loop cursor acc =
+      match%bind E.event_markets client ~historical ~event_ticker ~cursor with
+      | Error e -> return (Error e)
+      | Ok (page : E.Markets_page.t) ->
+        let acc = page.markets @ acc in
+        if String.is_empty page.cursor then return (Ok acc) else loop page.cursor acc
+    in
+    loop "" []
+  in
+  let%map () =
+    Deferred.List.iter
+      ~how:(`Max_concurrent_jobs 4)
+      pending
+      ~f:(fun (event_ticker, last_settle) ->
+        let%bind archived = fetch_all ~historical:true event_ticker in
+        let%map live =
+          if last_settle < market_cutoff
+          then return (Ok [])
+          else fetch_all ~historical:false event_ticker
+        in
+        match archived, live with
+        | Ok a, Ok l ->
+          let markets =
+            List.dedup_and_sort (a @ l) ~compare:(fun (x : E.Market_raw.t) y ->
+              String.compare x.ticker y.ticker)
+          in
+          Store.transaction store ~f:(fun () ->
+            List.iter markets ~f:(fun m ->
+              Store.exec
+                store
+                "INSERT OR REPLACE INTO event_markets(ticker, event_ticker, created_ts, \
+                 open_ts) VALUES (?,?,?,?)"
+                [ text m.ticker
+                ; text m.event_ticker
+                ; int (E.ts_exn m.created_time)
+                ; int (E.ts_exn m.open_time)
+                ]);
+            Store.exec
+              store
+              "INSERT OR REPLACE INTO event_markets_done(event_ticker, n_markets) VALUES \
+               (?,?)"
+              [ text event_ticker; int (List.length markets) ]);
+          Progress.advance progress
+        | Error e, _ | _, Error e ->
+          incr errors;
+          if !errors <= 5
+          then log "\nevent markets %s: %s" event_ticker (Error.to_string_hum e);
+          Progress.advance progress)
+  in
+  Progress.finish progress;
+  if !errors > 0 then log "event markets: %d events failed; rerun to retry" !errors
 ;;
 
 (* The trade sample: the first [sample] markets in [sample_key] order. *)
@@ -618,7 +727,7 @@ let run (config : Config.t) =
     then candles store client ~fraction:config.candle_fraction ~market_cutoff
     else return ()
   in
-  let%map () =
+  let%bind () =
     if wants Trades
     then
       trades
@@ -627,6 +736,27 @@ let run (config : Config.t) =
         ~sample:config.trade_sample
         ~max_pages:config.max_trade_pages
         ~trades_cutoff
+    else return ()
+  in
+  let%bind () =
+    if wants Model_trades
+    then
+      model_trades
+        store
+        client
+        ~fraction:config.candle_fraction
+        ~max_pages:config.max_trade_pages
+        ~trades_cutoff
+    else return ()
+  in
+  let%map () =
+    if wants Event_markets
+    then
+      event_markets
+        store
+        client
+        ~fraction:config.candle_fraction
+        ~market_cutoff:(E.ts_exn current.market_settled_ts)
     else return ()
   in
   log

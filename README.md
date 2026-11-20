@@ -111,6 +111,48 @@ make forward-install   # optional: run it daily at 06:30 with launchd (macOS); m
 
 `make reproduce` refuses to run if the frozen file's hash differs from the one above, and `fade report` refuses a frozen file whose contents no longer match its own hash. On the existing cache it regenerates an identical report: a completed listing is never extended, so the samples cannot shift. A fresh fetch lists markets settled through the end of 2026-11-16 (`--until`). The cache behind these numbers was listed at 21:10 UTC that day, so a fresh run can include a few more markets from that evening, and Kalshi's archive may change.
 
+## Can a model beat the price?
+
+Phases 7 to 10 ask whether a model predicts NO outcomes better than Kalshi's own price, and only then whether that is worth trading. The baseline is not the raw price but the price recalibrated on earlier data (Platt or isotonic on logit of the NO ask, chosen on validation months), which already absorbs the favorite-longshot bias.
+
+**Point-in-time rules.**
+- **Scheduled close.** Decisions count back from `expected_expiration_time`, which is set in advance. 55,222 of the 55,252 sampled markets can close early, an early close overwrites `close_time`, and 20,042 of them closed more than an hour before their expected expiration.
+- **Universe.** Volume traded *by the decision* of at least 500 contracts, not lifetime volume.
+- **Quote time.** Every feature is measured when the quote was observed (the end of the hourly candle, up to an hour before the decision). Measuring trades up to the decision let a stale ask look cheap after news broke: "NO rose 5¢ or more in the hour" showed +11.0 points before this fix and +5.9 after.
+- **Leakage test.** Features are recomputed with every candle, trade and market created after the decision deleted: no change, for 971 real markets and every synthetic one. The feature code cannot see the result, settlement time, actual close or lifetime volume at all.
+
+**The Phase 3 table again** (`fade recheck`: out-of-time, buy NO at the ask 1h before close, all markets):
+
+| Version | Observations | Buckets with CI below zero | Above zero | 90-95¢ | 95-100¢ |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| As frozen (study anchor) | 11,857 | 14 | 0 | -10.4% | -7.6% |
+| Expected expiration for every market | 11,192 | 14 | 0 | -10.7% | -8.0% |
+| ... and volume to date ≥ 500 | 8,461 | 12 | 0 | -6.8% | -5.5% |
+
+The conclusion does not change: buying NO at the ask lost money in every bucket, with or without the fixes.
+
+### What predicts NO beyond the recalibrated price (Phase 7)
+
+![The Explain tab](docs/assets/explain.png)
+
+`fade explain` tabulates out-of-sample residuals (1 if NO won, minus the recalibrated P(NO)) by feature level, in 13 walk-forward test months (2025-11 to 2026-11, events grouped, 2-day embargo): 28,362 rows from 19,588 markets, 26,399 of them in test months. On average NO won 1.2 points more often than the recalibrated price said (the baseline is always fitted on earlier months), so read each level against +1.2 rather than zero.
+
+| Factor (level) | Rows | Residual, points | 95% CI | Test months agreeing |
+| --- | ---: | ---: | --- | ---: |
+| Spread over 10¢ | 2,927 | -5.7 | -7.4 to -4.2 | 13 of 13 |
+| One-sided book | 3,153 | -3.3 | -3.8 to -2.8 | 13 of 13 |
+| Spread 1¢ | 11,020 | +3.2 | +2.3 to +4.1 | 13 of 13 |
+| NO rose 5¢+ in the hour before | 4,091 | +5.9 | +4.8 to +7.0 | 13 of 13 |
+| NO rose 5¢+ in the 6 hours before | 4,200 | +5.4 | +4.3 to +6.6 | 13 of 13 |
+| 400 to 1,599 trades to date | 2,389 | +4.7 | +3.2 to +6.3 | 13 of 13 |
+| Volume to date 100k+ | 1,698 | +5.4 | +3.3 to +7.4 | 12 of 13 |
+| Bracket (one winner) | 8,503 | +2.9 | +1.8 to +4.0 | 13 of 13 |
+
+- **Spread is mostly mechanical.** The ask includes half the spread, and the baseline only sees the ask, so wide or one-sided books overstate P(NO) and tight ones understate it.
+- **Momentum survives the quote-time fix,** at about half its earlier size: NO that has been rising keeps winning more often than its ask says.
+- **Liquid markets** (high volume or many trades) are where NO is cheapest relative to the baseline.
+- Effects that hold in only one month are flagged in the Explain tab, and wins-versus-losses comparisons within each price bucket are there too.
+
 ## Quickstart
 
 ```sh

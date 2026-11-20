@@ -1,0 +1,8 @@
+[
+  {"waitFor": "document.querySelector('#verdict') !== null"},
+  {"eval": "(() => { document.querySelector('#tab-explain').click(); return 'explain'; })()"},
+  {"waitFor": "document.querySelector('#explain-status') !== null"},
+  {"eval": "(() => { document.querySelector('#feature-move_1h').click(); return 'move_1h'; })()"},
+  {"wait": 400},
+  {"shot": "docs/assets/explain.png"}
+]

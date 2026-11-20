@@ -44,10 +44,13 @@ let truncate t ~at =
 module Features = struct
   type t =
     { horizon : Horizon.t
-    ; decision : Unix_time.t
+    ; decision : Unix_time.t (** scheduled close minus the horizon *)
+    ; asof : Unix_time.t
+      (** when the quote was observed (the candle's end, up to an hour before the
+          decision); every other feature is computed as of this moment too *)
     ; no_ask : float (** cents *)
     ; spread : float option (** YES ask minus YES bid, cents; [None]: one-sided *)
-    ; volume_to_date : float (** contracts traded up to the decision *)
+    ; volume_to_date : float (** contracts traded up to [asof] *)
     ; trades_to_date : int
     ; move_1h : float option (** change in the last NO trade price over the hour *)
     ; move_6h : float option
@@ -55,7 +58,7 @@ module Features = struct
     ; hours_to_close : float (** to the scheduled close *)
     ; category : string
     ; mutually_exclusive : bool
-    ; event_markets : int (** markets the event had at the decision *)
+    ; event_markets : int (** markets the event had at [asof] *)
     }
   [@@deriving sexp, compare, equal]
 
@@ -103,8 +106,13 @@ let features (p : t) ~(horizon : Horizon.t) : Features.t option =
      | None, _ -> None (* no YES bid: nobody to sell NO to us *)
      | Some bid, Some ask when Float.( < ) ask bid -> None (* crossed book *)
      | Some bid, ask ->
+       (* Everything is measured at the moment the quote was observed, not at the
+          decision. The quote can be up to an hour old; trades after it would describe
+          a price that the stale ask does not reflect, and a backtest buying at that
+          ask would be trading on news it could not have traded at. *)
+       let asof = q.end_ts in
        let n_trades =
-         count_upto p.trades ~key:(fun (tr : Trade.t) -> tr.ts) ~at:decision
+         count_upto p.trades ~key:(fun (tr : Trade.t) -> tr.ts) ~at:asof
        in
        let volume = ref 0. in
        for i = 0 to n_trades - 1 do
@@ -122,13 +130,14 @@ let features (p : t) ~(horizon : Horizon.t) : Features.t option =
            if k = 0 then None else Some (100. -. p.trades.(k - 1).yes_price)
          in
          let move seconds =
-           match last_no decision, last_no (decision - seconds) with
+           match last_no asof, last_no (asof - seconds) with
            | Some now, Some before -> Some (now -. before)
            | _ -> None
          in
          Some
            { horizon
            ; decision
+           ; asof
            ; no_ask
            ; spread = Option.map ask ~f:(fun a -> a -. bid)
            ; volume_to_date = !volume
@@ -136,10 +145,10 @@ let features (p : t) ~(horizon : Horizon.t) : Features.t option =
            ; move_1h = move 3600
            ; move_6h = move (6 * 3600)
            ; move_24h = move (24 * 3600)
-           ; hours_to_close = Float.of_int (p.view.scheduled_close - decision) /. 3600.
+           ; hours_to_close = Float.of_int (p.view.scheduled_close - asof) /. 3600.
            ; category = p.view.category
            ; mutually_exclusive = p.view.mutually_exclusive
-           ; event_markets = count_upto p.event_created ~key:Fn.id ~at:decision
+           ; event_markets = count_upto p.event_created ~key:Fn.id ~at:asof
            }))
 ;;
 
@@ -248,4 +257,44 @@ let%expect_test "features use nothing after the decision" =
     leaking horizons: 0
     a leaky feature is caught at 3 horizons
     |}]
+;;
+
+let%expect_test "with a stale quote, features stop at the quote, not at the decision" =
+  let hour = 3600 in
+  let close = 100 * hour in
+  let decision = close - hour in
+  let quote_end = decision - (40 * 60) in
+  let trade i ~ts ~yes_price : Trade.t =
+    { trade_id = Int.to_string i; ticker = "M"; ts; yes_price; count = 300.; taker_side = No; is_block = false }
+  in
+  let p =
+    { view =
+        { ticker = "M"
+        ; event_ticker = "E"
+        ; category = "Test"
+        ; open_time = 0
+        ; scheduled_close = close
+        ; mutually_exclusive = false
+        }
+    ; closed_at = Some close
+    ; candles = [| { Candle.end_ts = quote_end; yes_bid = Some 40.; yes_ask = Some 42. } |]
+    ; (* Two trades before the quote, then NO jumps 15c after it. *)
+      trades =
+        [| trade 0 ~ts:(quote_end - (2 * hour)) ~yes_price:58.
+         ; trade 1 ~ts:(quote_end - 600) ~yes_price:58.
+         ; trade 2 ~ts:(quote_end + 600) ~yes_price:43.
+        |]
+    ; event_created = [| 0 |]
+    }
+  in
+  (match features p ~horizon:H1 with
+   | None -> print_endline "no row"
+   | Some f ->
+     printf
+       "quote %d min before the decision; volume %.0f, trades %d, 1h move %s\n"
+       ((f.decision - f.asof) / 60)
+       f.volume_to_date
+       f.trades_to_date
+       (Option.value_map f.move_1h ~default:"-" ~f:(sprintf "%+.0f")));
+  [%expect {| quote 40 min before the decision; volume 600, trades 2, 1h move +0 |}]
 ;;

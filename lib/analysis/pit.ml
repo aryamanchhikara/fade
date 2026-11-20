@@ -111,9 +111,7 @@ let features (p : t) ~(horizon : Horizon.t) : Features.t option =
           a price that the stale ask does not reflect, and a backtest buying at that
           ask would be trading on news it could not have traded at. *)
        let asof = q.end_ts in
-       let n_trades =
-         count_upto p.trades ~key:(fun (tr : Trade.t) -> tr.ts) ~at:asof
-       in
+       let n_trades = count_upto p.trades ~key:(fun (tr : Trade.t) -> tr.ts) ~at:asof in
        let volume = ref 0. in
        for i = 0 to n_trades - 1 do
          volume := !volume +. p.trades.(i).count
@@ -158,6 +156,7 @@ module Row = struct
   type t =
     { ticker : string
     ; event_ticker : string
+    ; series_ticker : string (** for the fee schedule *)
     ; settle_time : Unix_time.t
     ; no_won : bool
     ; features : Features.t
@@ -265,7 +264,14 @@ let%expect_test "with a stale quote, features stop at the quote, not at the deci
   let decision = close - hour in
   let quote_end = decision - (40 * 60) in
   let trade i ~ts ~yes_price : Trade.t =
-    { trade_id = Int.to_string i; ticker = "M"; ts; yes_price; count = 300.; taker_side = No; is_block = false }
+    { trade_id = Int.to_string i
+    ; ticker = "M"
+    ; ts
+    ; yes_price
+    ; count = 300.
+    ; taker_side = No
+    ; is_block = false
+    }
   in
   let p =
     { view =
@@ -277,7 +283,8 @@ let%expect_test "with a stale quote, features stop at the quote, not at the deci
         ; mutually_exclusive = false
         }
     ; closed_at = Some close
-    ; candles = [| { Candle.end_ts = quote_end; yes_bid = Some 40.; yes_ask = Some 42. } |]
+    ; candles =
+        [| { Candle.end_ts = quote_end; yes_bid = Some 40.; yes_ask = Some 42. } |]
     ; (* Two trades before the quote, then NO jumps 15c after it. *)
       trades =
         [| trade 0 ~ts:(quote_end - (2 * hour)) ~yes_price:58.

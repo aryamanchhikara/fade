@@ -44,12 +44,14 @@ let load ?(leakage_every = 50) ?(require_event_markets = true) store ~fraction
       "SELECT m.ticker, m.event_ticker, m.open_ts, m.close_ts, m.settle_ts, m.result, \
        m.expected_expiration_ts, COALESCE(s.category, 'Unknown'), \
        COALESCE(e.mutually_exclusive, 0), COALESCE(md.truncated, d.truncated), \
-       (x.event_ticker IS NOT NULL) FROM markets m JOIN candles_done c USING (ticker) \
-       LEFT JOIN trades_done d USING (ticker) LEFT JOIN model_trades_done md USING \
-       (ticker) LEFT JOIN event_markets_done x ON x.event_ticker = m.event_ticker LEFT \
-       JOIN events e ON e.event_ticker = m.event_ticker LEFT JOIN series s ON s.ticker = \
-       COALESCE(e.series_ticker, substr(m.event_ticker, 1, instr(m.event_ticker || '-', \
-       '-') - 1)) WHERE m.sample_key < ? AND c.n_candles > 0 ORDER BY m.sample_key"
+       (x.event_ticker IS NOT NULL), COALESCE(e.series_ticker, substr(m.event_ticker, 1, \
+       instr(m.event_ticker || '-', '-') - 1)) FROM markets m JOIN candles_done c USING \
+       (ticker) LEFT JOIN trades_done d USING (ticker) LEFT JOIN model_trades_done md \
+       USING (ticker) LEFT JOIN event_markets_done x ON x.event_ticker = m.event_ticker \
+       LEFT JOIN events e ON e.event_ticker = m.event_ticker LEFT JOIN series s ON \
+       s.ticker = COALESCE(e.series_ticker, substr(m.event_ticker, 1, \
+       instr(m.event_ticker || '-', '-') - 1)) WHERE m.sample_key < ? AND c.n_candles > \
+       0 ORDER BY m.sample_key"
       [ Sqlite3.Data.INT (Int64.of_int threshold) ]
   in
   let truncated = ref 0
@@ -151,7 +153,13 @@ let load ?(leakage_every = 50) ?(require_event_markets = true) store ~fraction
         List.filter_map Horizon.all ~f:(fun horizon ->
           Pit.features pit ~horizon
           |> Option.map ~f:(fun features ->
-            { Pit.Row.ticker; event_ticker; settle_time; no_won; features })))
+            { Pit.Row.ticker
+            ; event_ticker
+            ; series_ticker = col_text r.(11)
+            ; settle_time
+            ; no_won
+            ; features
+            })))
   in
   ( rows
   , { sampled_with_candles = List.length candidates

@@ -113,6 +113,7 @@ let rows markets : Pit.Row.t list =
       |> Option.map ~f:(fun features ->
         { Pit.Row.ticker = m.pit.view.ticker
         ; event_ticker = m.pit.view.event_ticker
+        ; series_ticker = "SYN"
         ; settle_time = m.settle_time
         ; no_won = m.no_won
         ; features

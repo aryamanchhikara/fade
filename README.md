@@ -176,6 +176,24 @@ The conclusion does not change: buying NO at the ask lost money in every bucket,
 
 Both models beat the recalibrated price out of sample (Brier and ECE improve too). The logistic model's largest weights, after the price spline, are on the one-sided book and the spread: much of the gain is knowing that the ask contains half the spread, which mostly tells you when *not* to buy. Whether any of it survives fees at the real ask is Phase 9. Final models are in [`models/`](models), each named by a SHA-256 of the data window, feature list and parameters.
 
+### The EV rule, backtested (Phase 9)
+
+`fade backtest` trades the out-of-sample predictions: buy NO as a taker at the ask when the model's P(NO) minus the ask minus Kalshi's taker fee exceeds a threshold, only on two-sided books with a spread of at most 5¢, at most once per market. The threshold is chosen each month from {0, 0.5, 1, 2, 3, 5, 8}¢ on the two months before it, so trading runs 2026-01 to 2026-11. A 10-contract order is assumed to fill above the ask by the slippage shown (there is no historical depth).
+
+| Model | Size | Slippage | Trades | Hit rate | Return / $ | 95% CI (event-clustered) |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Logistic | 1 | 0¢ | 352 | 59.1% | -1.7% | -10.0% to +6.3% |
+| Logistic | 10 | 0¢ | 491 | 56.6% | -3.9% | -10.5% to +2.2% |
+| Logistic | 10 | 1¢ | 190 | 60.5% | -2.4% | -13.0% to +8.3% |
+| Logistic | 10 | 2¢ | 120 | 52.5% | -12.5% | -27.0% to +2.0% |
+| LightGBM | 1 | 0¢ | 68 | 30.9% | -23.9% | -48.8% to +2.0% |
+| LightGBM | 10 | 1¢ | 84 | 29.8% | -31.0% | -50.7% to -9.9% |
+| Recalibrated price | 10 | 1¢ | 72 | 27.8% | -35.4% | -57.7% to -12.0% |
+
+**No model shows positive EV after fees.** Every point estimate is negative and no CI is above zero, so by the rule set for this work (beat the baseline on log loss *and* make money after fees) no model counts. The models disagree with the ask by more than the fee on about 74% of test rows, but where they say NO is cheap enough to buy, it is not cheap enough to profit.
+
+The rule was still frozen before any forward evaluation, mechanically: the model and threshold with the most profit over the last two months at size 10 with 1¢ slippage. That picked LightGBM at a 5¢ threshold on only $0.46 of validation profit, a choice its own walk-forward backtest above (-31.0%) does not support. [`rules/model_rule.json`](rules/model_rule.json), sha256 `2e9a4f745db452e9e96b196d195676038c1c7a70351ba113f3817c541940cea9`, pins it with the SHA-256 of each model file.
+
 ## Quickstart
 
 ```sh

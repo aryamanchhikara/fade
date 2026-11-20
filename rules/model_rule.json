@@ -1,0 +1,91 @@
+{
+  "frozen_at": "2026-11-20T18:03:59Z",
+  "config": {
+    "model": {
+      "name": "lightgbm",
+      "path": "models/lightgbm-abde0f5e4bda.txt",
+      "sha256": "502bbaee68299bd1d33aa8f098931ee20dc564c5ce238087556dbcc2fbbe0aab"
+    },
+    "baseline": {
+      "name": "baseline",
+      "path": "models/baseline-5788800b25de.sexp",
+      "sha256": "62f94244bdc27a9a46414f1ff9337cce43d390aaa4f12863fc73bb9349f7009e"
+    },
+    "data_since": "2025-05-16",
+    "data_until": "2026-11-16",
+    "threshold": 0.05,
+    "max_spread": 5.0,
+    "sizes": [ 1, 10 ],
+    "slippage": 1.0,
+    "min_volume": 500.0,
+    "horizons": [ [ "H24" ], [ "H6" ], [ "H1" ] ],
+    "one_trade_per_market": true,
+    "selection": "Model and EV threshold with the highest profit over the last 2 walk-forward months (2026-10, 2026-11) at size 10 with 1c slippage, from the grid 0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08 dollars."
+  },
+  "backtest": [
+    [
+      "size 1, slippage 0c",
+      {
+        "trades": 68,
+        "events": 67,
+        "hit_rate": 0.3088235294117647,
+        "avg_price": 38.661764705882355,
+        "avg_fee": 1.9264705882352942,
+        "avg_ev": 0.05127031040331841,
+        "return_per_dollar": -0.23913043478260848,
+        "ci": { "lo": -0.48765639459906424, "hi": 0.02022721873042597 },
+        "profit": -6.599999999999997,
+        "max_drawdown": 8.27
+      }
+    ],
+    [
+      "size 10, slippage 0c",
+      {
+        "trades": 142,
+        "events": 141,
+        "hit_rate": 0.3380281690140845,
+        "avg_price": 45.257746478873244,
+        "avg_fee": 1.5394366197183105,
+        "avg_ev": 0.035698372342808524,
+        "return_per_dollar": -0.27767411063624864,
+        "ci": { "lo": -0.4259272259449127, "hi": -0.12191309392459608 },
+        "profit": -184.52,
+        "max_drawdown": 188.33999999999995
+      }
+    ],
+    [
+      "size 10, slippage 1c",
+      {
+        "trades": 84,
+        "events": 83,
+        "hit_rate": 0.2976190476190476,
+        "avg_price": 41.55952380952381,
+        "avg_fee": 1.5535714285714282,
+        "avg_ev": 0.037174750640666776,
+        "return_per_dollar": -0.3096783100925032,
+        "ci": { "lo": -0.5067476110503498, "hi": -0.09868077018876893 },
+        "profit": -112.15000000000002,
+        "max_drawdown": 112.14999999999996
+      }
+    ],
+    [
+      "size 10, slippage 2c",
+      {
+        "trades": 68,
+        "events": 67,
+        "hit_rate": 0.3235294117647059,
+        "avg_price": 41.3235294117647,
+        "avg_fee": 1.5764705882352938,
+        "avg_ev": 0.03174969320096526,
+        "return_per_dollar": -0.24585218702865771,
+        "ci": { "lo": -0.4852825103270874, "hi": -0.008861158045662522 },
+        "profit": -71.72000000000001,
+        "max_drawdown": 103.22999999999999
+      }
+    ]
+  ],
+  "hash": "2e9a4f745db452e9e96b196d195676038c1c7a70351ba113f3817c541940cea9",
+  "notes": [
+    "Validation-window profit at the chosen threshold: $0.46 per 10-contract order sequence."
+  ]
+}

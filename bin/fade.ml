@@ -28,6 +28,7 @@ let command =
     ; "recheck", Cmd_recheck.command
     ; "explain", Cmd_explain.command
     ; "train", Cmd_train.command
+    ; "backtest", Cmd_backtest.command
     ; "serve", Cmd_serve.command
     ; "synth", Cmd_synth.command
     ; "cutoff", cutoff_command

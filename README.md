@@ -39,6 +39,46 @@
 Fee is per contract for a 100-contract taker order. Break-even is the win rate needed to cover price plus fee.
 </details>
 
+## Findings
+
+**Predictable but not profitable.**
+
+**1. Quoted asks lose after fees, mostly from the spread.** Buying NO at the ask lost money in every price bucket out of time (table above), and still does with decisions counted back from the expected expiration and volume measured to date (no bucket above zero; see [the re-check](#can-a-model-beat-the-price)). An hour before close 64.8% of sampled markets had no tight book, and the ask includes half the spread: wide and one-sided books overprice NO by 3 to 6 points even after recalibration.
+
+**2. A model beats the recalibrated price in every month.** A hand-written logistic regression on point-in-time features has lower out-of-sample log loss than the price recalibrated on earlier data in all 13 walk-forward months (12 with the 95% CI below zero):
+
+| Month | Rows | Recalibrated price | Logistic | Difference (95% CI, resampling events) |
+| --- | ---: | ---: | ---: | --- |
+| 2025-11 | 853 | 0.5403 | 0.5200 | -0.0203 (-0.0424 to -0.0031) |
+| 2025-12 | 995 | 0.5152 | 0.4790 | -0.0363 (-0.0610 to -0.0155) |
+| 2026-01 | 1,338 | 0.4804 | 0.4576 | -0.0228 (-0.0377 to -0.0083) |
+| 2026-02 | 1,285 | 0.4413 | 0.4267 | -0.0146 (-0.0241 to -0.0055) |
+| 2026-03 | 1,579 | 0.4471 | 0.4223 | -0.0247 (-0.0353 to -0.0148) |
+| 2026-04 | 1,742 | 0.4507 | 0.4379 | -0.0127 (-0.0227 to -0.0032) |
+| 2026-05 | 1,877 | 0.4248 | 0.4148 | -0.0100 (-0.0173 to -0.0025) |
+| 2026-06 | 1,911 | 0.4005 | 0.3924 | -0.0081 (-0.0150 to -0.0009) |
+| 2026-07 | 2,229 | 0.3983 | 0.3836 | -0.0147 (-0.0211 to -0.0090) |
+| 2026-08 | 2,803 | 0.4492 | 0.4348 | -0.0144 (-0.0205 to -0.0083) |
+| 2026-09 | 3,581 | 0.4616 | 0.4481 | -0.0136 (-0.0198 to -0.0085) |
+| 2026-10 | 3,822 | 0.4350 | 0.4249 | -0.0101 (-0.0154 to -0.0055) |
+| 2026-11 | 2,384 | 0.4436 | 0.4420 | -0.0015 (-0.0102 to +0.0112) |
+| **Pooled** | **26,399** | **0.4454** | **0.4316** | **-0.0137 (-0.0161 to -0.0115)** |
+
+What it knows that the price does not is mostly NO momentum (NO that has risen over the past hour or six keeps winning about 5 to 6 points more often than its ask says) and book shape (spread width, one-sided books, liquidity).
+
+**3. No rule converts that into profit after costs.**
+
+| Rule (walk-forward, thresholds chosen on earlier months) | Fills | Return / $ | 95% CI |
+| --- | ---: | ---: | --- |
+| Taker at the ask when model EV > threshold, 1 contract | 352 | -1.7% | -10.0% to +6.3% |
+| Taker, 10 contracts, 1¢ slippage | 190 | -2.4% | -13.0% to +8.3% |
+| Maker: NO bid 1¢ inside the spread, strict fills | 931 | -1.0% | -6.6% to +4.6% |
+| Maker, loose fills | 1,157 | +1.5% | -3.2% to +6.2% |
+
+Crossing the spread gives the edge back to the spread and fees. Posting inside it runs into adverse selection: a resting NO bid fills when NO is falling, so filled orders won 47.2% of the time (the model said 55.9%) while orders that never filled won 98.0%. The 90-95¢ NO candidate (rules A and B) also lost in-sample and is under forward test.
+
+**Looks taken: 9,912**, counting 496 in-sample cells searched for the frozen rules, 9,193 report cells looked at afterwards, 3 candidate rules, 68 factor levels, 12 model settings, 84 taker rules and 56 maker rules. Against that many looks, nothing here clears zero after costs, which is the result: no proven edge.
+
 ### What else the data shows (exploratory, not tested)
 
 These came out of looking at the full report after the rules were frozen. None of them is a result.
@@ -115,7 +155,7 @@ make forward-install   # optional: run it daily at 06:30 with launchd (macOS); m
 
 Phases 7 to 10 ask whether a model predicts NO outcomes better than Kalshi's own price, and only then whether that is worth trading. The baseline is not the raw price but the price recalibrated on earlier data (Platt or isotonic on logit of the NO ask, chosen on validation months), which already absorbs the favorite-longshot bias.
 
-**Result: the models predict better, but not profitably.** Both beat the recalibrated price on out-of-sample log loss (Phase 8), and no EV rule built on them makes money after fees at the real ask (Phase 9). The live opportunities scanner (Phase 10) was not built: with no rule that makes money, it would only rank losing trades.
+**Result: the models predict better, but not profitably.** Both beat the recalibrated price on out-of-sample log loss (Phase 8), no EV rule built on them makes money after fees at the real ask (Phase 9), and posting inside the spread instead runs into adverse selection (Phase 9b). The live opportunities scanner (Phase 10) was not built: with no rule that makes money, it would only rank losing trades.
 
 **Point-in-time rules.**
 - **Scheduled close.** Decisions count back from `expected_expiration_time`, which is set in advance. 55,222 of the 55,252 sampled markets can close early, an early close overwrites `close_time`, and 20,042 of them closed more than an hour before their expected expiration.
@@ -196,6 +236,22 @@ Both models beat the recalibrated price out of sample (Brier and ECE improve too
 
 The rule was still frozen before any forward evaluation, mechanically: the model and threshold with the most profit over the last two months at size 10 with 1¢ slippage. That picked LightGBM at a 5¢ threshold on only $0.46 of validation profit, a choice its own walk-forward backtest above (-31.0%) does not support. [`rules/model_rule.json`](rules/model_rule.json), sha256 `2e9a4f745db452e9e96b196d195676038c1c7a70351ba113f3817c541940cea9`, pins it with the SHA-256 of each model file.
 
+### Posting instead of crossing (Phase 9b)
+
+`fade maker` tests whether a resting order captures what the taker rule gives away: at a decision with a two-sided book, rest a 1-contract NO bid 1¢ above the best NO bid (so below the ask) when the logistic model's P(NO) minus the bid minus the maker fee exceeds a threshold, and leave it until close. Threshold ({0, 0.5, 1, 2, 3, 5, 8}¢) and horizon (24h, 6h, 1h, or the first that triggers) are chosen each month on the two months before it. Fills use rule B's model: strict needs a later trade below our bid, loose a trade at it or below. 11,020 of the rows had a 1¢ spread and so no room inside it.
+
+| Fills | Orders | Filled | Hit rate | Avg bid | Return / $ | 95% CI (event-clustered) |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Strict | 1,224 | 931 (76%) | 47.2% | 47.5¢ | -1.0% | -6.6% to +4.6% |
+| Loose | 1,600 | 1,157 (72%) | 49.0% | 48.2¢ | +1.5% | -3.2% to +6.2% |
+
+| Adverse selection (strict) | Orders that filled | Orders that did not |
+| --- | ---: | ---: |
+| Model's average P(NO) | 55.9% | 70.0% |
+| NO actually won | 47.2% | 98.0% |
+
+The model is well calibrated on all rows but not on the rows that fill: among strict fills it predicted 85% in its 0.8-0.9 bin and NO won 71%. Neither fill model's CI clears zero, so nothing was frozen and nothing was added to the forward test.
+
 ## Quickstart
 
 ```sh
@@ -233,6 +289,7 @@ flowchart LR
 - **`fade candidate`** scores the forward-test rules in-sample and locks them, with those numbers, in `rules/candidate.json`.
 - **`fade forward`** fetches markets settled in the forward window into its own cache (`data/forward.db`), scores the locked rules and writes `web/data/forward.json`.
 - **`fade spreads`** prints how often the book was one-sided or wide, by category.
+- **`fade recheck`, `fade explain`, `fade train`, `fade backtest`, `fade maker`** are the model work: the Phase 3 table under point-in-time rules, residual analysis, model training, and the taker and maker backtests. They need the model data (`fade fetch --stages model_trades,event_markets --candle-fraction 0.02 --max-trade-pages 100`) and, for LightGBM, `brew install lightgbm`.
 - **`fade serve`** serves the dashboard on localhost (Study and Forward test tabs). `fade serve --demo` uses synthetic data and labels itself as synthetic.
 
 ## The test

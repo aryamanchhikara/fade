@@ -177,6 +177,7 @@ let%expect_test "EV, one trade per market, threshold choice" =
         ; mutually_exclusive = false
         ; event_markets = 1
         }
+    ; min_no_after = None
     }
   in
   let fees =

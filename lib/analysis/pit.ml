@@ -160,8 +160,23 @@ module Row = struct
     ; settle_time : Unix_time.t
     ; no_won : bool
     ; features : Features.t
+    ; min_no_after : float option
+      (** the lowest NO price any later trade printed at, between the quote and the
+          close: decides whether a resting NO bid would have filled. Outcome-side data,
+          like [no_won]; never a feature. *)
     }
 end
+
+(* The lowest NO price of a non-block trade after [after] and no later than the close. *)
+let min_no_after (p : t) ~after =
+  let close = Option.value p.closed_at ~default:Int.max_value in
+  Array.fold p.trades ~init:None ~f:(fun acc (tr : Trade.t) ->
+    if tr.ts > after && tr.ts <= close && not tr.is_block
+    then (
+      let no = 100. -. tr.yes_price in
+      Some (Option.value_map acc ~default:no ~f:(Float.min no)))
+    else acc)
+;;
 
 (* The leakage check: features at the decision must not change when everything after
    it is deleted. Returns the horizons where they do. *)

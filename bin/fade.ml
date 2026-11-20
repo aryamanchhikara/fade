@@ -29,6 +29,7 @@ let command =
     ; "explain", Cmd_explain.command
     ; "train", Cmd_train.command
     ; "backtest", Cmd_backtest.command
+    ; "maker", Cmd_maker.command
     ; "serve", Cmd_serve.command
     ; "synth", Cmd_synth.command
     ; "cutoff", cutoff_command

@@ -117,5 +117,6 @@ let rows markets : Pit.Row.t list =
         ; settle_time = m.settle_time
         ; no_won = m.no_won
         ; features
+        ; min_no_after = Pit.min_no_after m.pit ~after:features.asof
         })))
 ;;

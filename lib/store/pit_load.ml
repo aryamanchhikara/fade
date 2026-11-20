@@ -159,6 +159,7 @@ let load ?(leakage_every = 50) ?(require_event_markets = true) store ~fraction
             ; settle_time
             ; no_won
             ; features
+            ; min_no_after = Pit.min_no_after pit ~after:features.asof
             })))
   in
   ( rows

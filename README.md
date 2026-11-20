@@ -153,6 +153,29 @@ The conclusion does not change: buying NO at the ask lost money in every bucket,
 - **Liquid markets** (high volume or many trades) are where NO is cheapest relative to the baseline.
 - Effects that hold in only one month are flagged in the Explain tab, and wins-versus-losses comparisons within each price bucket are there too.
 
+### Models vs the recalibrated price (Phase 8)
+
+`fade train` fits, in every test month, a hand-written logistic regression (gradient descent with Nesterov momentum, L2 chosen on the two previous months, a linear spline in logit of the ask) and LightGBM (monotone increasing in the NO price, leaves and minimum leaf size chosen on the same validation months with early stopping), both on everything settled before the month. Log loss, lower is better; differences are model minus baseline with 95% CIs resampling events:
+
+| Test month | Rows | Baseline | Logistic, difference (CI) | LightGBM, difference (CI) |
+| --- | ---: | ---: | --- | --- |
+| 2025-11 | 853 | 0.5403 | -0.0203 (-0.0424 to -0.0031) | +0.0060 (-0.0119 to +0.0222) |
+| 2025-12 | 995 | 0.5152 | -0.0363 (-0.0610 to -0.0155) | -0.0175 (-0.0363 to +0.0011) |
+| 2026-01 | 1,338 | 0.4804 | -0.0228 (-0.0377 to -0.0083) | -0.0149 (-0.0281 to -0.0018) |
+| 2026-02 | 1,285 | 0.4413 | -0.0146 (-0.0241 to -0.0055) | -0.0074 (-0.0155 to +0.0002) |
+| 2026-03 | 1,579 | 0.4471 | -0.0247 (-0.0353 to -0.0148) | -0.0212 (-0.0333 to -0.0104) |
+| 2026-04 | 1,742 | 0.4507 | -0.0127 (-0.0227 to -0.0032) | -0.0108 (-0.0196 to -0.0023) |
+| 2026-05 | 1,877 | 0.4248 | -0.0100 (-0.0173 to -0.0025) | -0.0090 (-0.0153 to -0.0024) |
+| 2026-06 | 1,911 | 0.4005 | -0.0081 (-0.0150 to -0.0009) | -0.0087 (-0.0154 to -0.0029) |
+| 2026-07 | 2,229 | 0.3983 | -0.0147 (-0.0211 to -0.0090) | -0.0125 (-0.0194 to -0.0068) |
+| 2026-08 | 2,803 | 0.4492 | -0.0144 (-0.0205 to -0.0083) | -0.0122 (-0.0176 to -0.0070) |
+| 2026-09 | 3,581 | 0.4616 | -0.0136 (-0.0198 to -0.0085) | -0.0121 (-0.0176 to -0.0069) |
+| 2026-10 | 3,822 | 0.4350 | -0.0101 (-0.0154 to -0.0055) | -0.0106 (-0.0147 to -0.0067) |
+| 2026-11 | 2,384 | 0.4436 | -0.0015 (-0.0102 to +0.0112) | -0.0056 (-0.0121 to +0.0019) |
+| **Pooled** | **26,399** | **0.4454** | **-0.0137 (-0.0161 to -0.0115)** | **-0.0109 (-0.0128 to -0.0088)** |
+
+Both models beat the recalibrated price out of sample (Brier and ECE improve too). The logistic model's largest weights, after the price spline, are on the one-sided book and the spread: much of the gain is knowing that the ask contains half the spread, which mostly tells you when *not* to buy. Whether any of it survives fees at the real ask is Phase 9. Final models are in [`models/`](models), each named by a SHA-256 of the data window, feature list and parameters.
+
 ## Quickstart
 
 ```sh

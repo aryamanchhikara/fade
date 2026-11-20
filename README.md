@@ -115,6 +115,8 @@ make forward-install   # optional: run it daily at 06:30 with launchd (macOS); m
 
 Phases 7 to 10 ask whether a model predicts NO outcomes better than Kalshi's own price, and only then whether that is worth trading. The baseline is not the raw price but the price recalibrated on earlier data (Platt or isotonic on logit of the NO ask, chosen on validation months), which already absorbs the favorite-longshot bias.
 
+**Result: the models predict better, but not profitably.** Both beat the recalibrated price on out-of-sample log loss (Phase 8), and no EV rule built on them makes money after fees at the real ask (Phase 9). The live opportunities scanner (Phase 10) was not built: with no rule that makes money, it would only rank losing trades.
+
 **Point-in-time rules.**
 - **Scheduled close.** Decisions count back from `expected_expiration_time`, which is set in advance. 55,222 of the 55,252 sampled markets can close early, an early close overwrites `close_time`, and 20,042 of them closed more than an hour before their expected expiration.
 - **Universe.** Volume traded *by the decision* of at least 500 contracts, not lifetime volume.
